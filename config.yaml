@@ -79,7 +79,7 @@ github:
 
 telegram:
   # Activar notificaciones por Telegram
-  enabled: false
+  enabled: true
 
   # Tipos de notificación
   notify_on:
