@@ -1,0 +1,64 @@
+# ============================================================
+# mikalia_agent.yml — Trigger para tareas del agente de código
+# ============================================================
+# Permite activar el agente de Mikalia manualmente desde GitHub
+# para que analice repos y proponga cambios via PR.
+# ============================================================
+
+name: "Mikalia Code Agent"
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo:
+        description: "Repo objetivo (ej: mikata-ai-lab/mikalia-bot)"
+        required: true
+        type: string
+      task:
+        description: "Tarea a ejecutar (ej: 'Add error handling to API calls')"
+        required: true
+        type: string
+      dry_run:
+        description: "Solo generar cambios sin crear PR"
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  execute-agent:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout mikalia-bot
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install gh CLI
+        run: |
+          type -p curl >/dev/null || (sudo apt update && sudo apt install curl -y)
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli-stable.list > /dev/null
+          sudo apt update && sudo apt install gh -y
+
+      - name: Run Mikalia Agent
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ARGS="--repo ${{ github.event.inputs.repo }} --task \"${{ github.event.inputs.task }}\""
+
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            ARGS="$ARGS --dry-run"
+          fi
+
+          eval python -m mikalia agent $ARGS

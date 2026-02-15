@@ -215,6 +215,78 @@ def interactive():
 
 
 @main.command()
+@click.option(
+    "--repo", "-r",
+    required=True,
+    help="Repo objetivo (ej: 'owner/repo' o ruta local)"
+)
+@click.option(
+    "--task", "-t",
+    required=True,
+    help="Tarea a ejecutar (ej: 'Add error handling to API calls')"
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Genera cambios sin crear PR"
+)
+def agent(repo: str, task: str, dry_run: bool):
+    """[F3] Agente de código — Mikalia propone cambios y crea PRs."""
+    rich_console.print(BANNER)
+    logger.mikalia(f"Modo agente: {task}")
+
+    try:
+        config = load_config()
+        personality = load_personality()
+
+        client = MikaliaClient(
+            api_key=config.anthropic_api_key,
+            model=config.mikalia.model,
+            personality=personality,
+        )
+
+        from mikalia.agent.code_agent import CodeAgent
+        code_agent = CodeAgent(client, config)
+        result = code_agent.execute_task(
+            repo=repo,
+            task=task,
+            dry_run=dry_run,
+        )
+
+        if result.success:
+            rich_console.print(Panel(
+                f"[bold]Tarea:[/bold] {task}\n"
+                f"[bold]Archivos:[/bold] {len(result.changes)}\n"
+                f"[bold]PR:[/bold] {result.pr.url if result.pr and result.pr.number else 'N/A (dry-run)'}\n"
+                f"[bold]Resumen:[/bold]\n{result.summary}",
+                title="[OK] Agente completado",
+                border_style="green",
+            ))
+
+            # Notificar por Telegram si hay PR
+            if result.pr and result.pr.number and config.telegram.enabled:
+                notifier = _build_notifier(config)
+                from mikalia.notifications.notifier import Event
+                notifier.notify(Event.PR_CREATED, {
+                    "title": task,
+                    "pr_url": result.pr.url,
+                })
+        else:
+            rich_console.print(Panel(
+                f"[bold]Tarea:[/bold] {task}\n"
+                f"[bold]Error:[/bold] {result.error}",
+                title="[X] Agente falló",
+                border_style="red",
+            ))
+            sys.exit(1)
+
+    except Exception as e:
+        logger.error(f"Error en agente: {e}")
+        sys.exit(1)
+
+
+@main.command()
 @click.option("--show", is_flag=True, help="Muestra la configuración actual")
 @click.option("--validate", is_flag=True, help="Valida la configuración")
 def config(show: bool, validate: bool):
