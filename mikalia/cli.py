@@ -14,6 +14,8 @@ Comandos disponibles:
     python -m mikalia post --topic "Mi tema"     → Genera y publica post
     python -m mikalia post --topic "X" --dry-run → Genera sin publicar
     python -m mikalia post --topic "X" --preview → Muestra en terminal
+    python -m mikalia post --topic "X" --repo "owner/repo" → Post basado en repo [F2]
+    python -m mikalia post --topic "X" --doc "path/file.md" → Post basado en doc [F2]
     python -m mikalia interactive                 → Modo interactivo
     python -m mikalia config --show               → Muestra configuración
     python -m mikalia config --validate           → Valida configuración
@@ -94,12 +96,24 @@ def main():
     default=False,
     help="Muestra en terminal, NO guarda ni pushea"
 )
+@click.option(
+    "--repo", "-r",
+    default=None,
+    help="[F2] Repo para contexto (ej: 'owner/repo' o ruta local)"
+)
+@click.option(
+    "--doc", "-d",
+    default=None,
+    help="[F2] Documento para contexto (ej: 'docs/architecture.md')"
+)
 def post(
     topic: str,
     category: str | None,
     tags: str | None,
     dry_run: bool,
     preview: bool,
+    repo: str | None,
+    doc: str | None,
 ):
     """📝 Genera y publica un post bilingüe."""
     rich_console.print(BANNER)
@@ -120,12 +134,30 @@ def post(
             personality=personality,
         )
 
+        # [F2] Obtener contexto de repo o documento si se especificó
+        context = None
+        if repo:
+            from mikalia.generation.repo_analyzer import RepoAnalyzer
+            logger.info(f"Analizando repo: {repo}")
+            analyzer = RepoAnalyzer()
+            repo_context = analyzer.analyze(repo, focus_topic=topic)
+            context = repo_context.to_prompt()
+            logger.success(f"Contexto extraído: {len(context)} chars")
+        elif doc:
+            from mikalia.generation.doc_analyzer import DocAnalyzer
+            logger.info(f"Analizando documento: {doc}")
+            analyzer = DocAnalyzer()
+            doc_context = analyzer.analyze(doc, focus_topic=topic)
+            context = doc_context.to_prompt()
+            logger.success(f"Contexto extraído: {len(context)} chars")
+
         # Generar post
         generator = PostGenerator(client, config)
         generated_post = generator.generate_post(
             topic=topic,
             category=category,
             tags=tag_list,
+            context=context,
         )
 
         # Formatear para Hugo

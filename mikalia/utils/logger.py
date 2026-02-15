@@ -21,6 +21,7 @@ Uso:
 from __future__ import annotations
 
 import io
+import os
 import sys
 
 from rich.console import Console
@@ -30,7 +31,9 @@ from rich.theme import Theme
 # La terminal de Windows usa cp1252 por defecto, que no soporta emojis.
 # Wrapeamos stdout con un TextIOWrapper que reemplaza caracteres
 # no encodables en vez de crashear.
-if sys.platform == "win32":
+# NOTA: No aplicar si estamos en pytest (conflicto con capture system)
+_in_pytest = "pytest" in sys.modules or "PYTEST_CURRENT_TEST" in os.environ
+if sys.platform == "win32" and not _in_pytest:
     if hasattr(sys.stdout, "buffer"):
         sys.stdout = io.TextIOWrapper(
             sys.stdout.buffer, encoding="utf-8", errors="replace"

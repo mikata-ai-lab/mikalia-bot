@@ -1,0 +1,116 @@
+# ============================================================
+# scheduled_post.yml — Publica posts automáticamente con cron
+# ============================================================
+# Este workflow permite que Mikalia publique posts programados
+# sin intervención manual. Se activa por cron o manualmente.
+#
+# Cron: Lunes y Jueves a las 10:00 AM CST (16:00 UTC)
+# Manual: Desde la pestaña Actions en GitHub
+# ============================================================
+
+name: "Mikalia Scheduled Post"
+
+on:
+  # Cron: Lunes y Jueves a las 10:00 AM CST (16:00 UTC)
+  schedule:
+    - cron: "0 16 * * 1,4"
+
+  # También se puede activar manualmente desde GitHub
+  workflow_dispatch:
+    inputs:
+      topic:
+        description: "Tema del post (dejar vacío para que Mikalia elija)"
+        required: false
+        type: string
+      category:
+        description: "Categoría del post"
+        required: false
+        type: string
+        default: "ai"
+      repo:
+        description: "Repo para contexto (ej: owner/repo)"
+        required: false
+        type: string
+      doc:
+        description: "Documento para contexto (ruta relativa)"
+        required: false
+        type: string
+
+jobs:
+  generate-post:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout mikalia-bot
+        uses: actions/checkout@v4
+
+      - name: Checkout blog repo
+        uses: actions/checkout@v4
+        with:
+          repository: mikata-ai-lab/mikata-ai
+          path: blog-repo
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Determine topic
+        id: topic
+        run: |
+          if [ -n "${{ github.event.inputs.topic }}" ]; then
+            echo "topic=${{ github.event.inputs.topic }}" >> $GITHUB_OUTPUT
+          else
+            # Mikalia elige un tema de la lista de sugeridos
+            TOPICS=(
+              "Weekly recap of Mikata AI Lab progress"
+              "Technical deep-dive on a recent project"
+              "AI tools and techniques I have been exploring"
+              "Lessons learned this week in AI development"
+            )
+            # Seleccionar basado en el día del año
+            DAY=$(date +%j)
+            INDEX=$((DAY % ${#TOPICS[@]}))
+            echo "topic=${TOPICS[$INDEX]}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate and publish post
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          BLOG_REPO_PATH: ${{ github.workspace }}/blog-repo
+        run: |
+          ARGS="--topic \"${{ steps.topic.outputs.topic }}\""
+
+          if [ -n "${{ github.event.inputs.category }}" ]; then
+            ARGS="$ARGS --category ${{ github.event.inputs.category }}"
+          fi
+
+          if [ -n "${{ github.event.inputs.repo }}" ]; then
+            ARGS="$ARGS --repo ${{ github.event.inputs.repo }}"
+          fi
+
+          if [ -n "${{ github.event.inputs.doc }}" ]; then
+            ARGS="$ARGS --doc ${{ github.event.inputs.doc }}"
+          fi
+
+          eval python -m mikalia post $ARGS
+
+      - name: Push blog changes
+        working-directory: blog-repo
+        run: |
+          git config user.name "Mikalia Bot"
+          git config user.email "mikalia@mikata-ai-lab.github.io"
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Scheduled post by Mikalia Bot"
+            git push
+          fi

@@ -77,6 +77,35 @@ github:
     feat: ["enhancement", "mikalia-authored"]
     docs: ["documentation", "mikalia-authored"]
 
+repos:
+  # Directorio local para cachear repos clonados
+  cache_dir: "${HOME}/.mikalia/repos"
+
+  # Repos pre-configurados (Mikalia puede leer estos sin preguntar)
+  allowed:
+    - repo: "mikata-ai-lab/mikalia-bot"
+      private: false
+    - repo: "mikata-ai-lab/mikata-ai"
+      private: false
+
+  # Limpiar cache después de N días
+  cache_ttl_days: 7
+
+scheduling:
+  # Activar posts programados
+  enabled: false
+
+  # Cron expression (UTC)
+  # Default: Lunes y Jueves a las 16:00 UTC (10:00 CST)
+  cron: "0 16 * * 1,4"
+
+  # Temas sugeridos (Mikalia elige uno si no se especifica)
+  suggested_topics:
+    - "Weekly recap of Mikata AI Lab progress"
+    - "Technical deep-dive on a recent project"
+    - "AI tools and techniques I've been exploring"
+    - "Lessons learned this week"
+
 telegram:
   # Activar notificaciones por Telegram
   enabled: true
