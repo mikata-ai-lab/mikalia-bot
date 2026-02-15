@@ -1,0 +1,30 @@
+# ============================================================
+# Dependencias de Mikalia Bot
+# ============================================================
+
+# --- Core ---
+anthropic>=0.42.0          # SDK oficial de Anthropic (Claude API)
+gitpython>=3.1.0           # Operaciones Git desde Python
+python-dotenv>=1.0.0       # Carga variables de .env
+pyyaml>=6.0                # Parseo de config.yaml y front matter
+
+# --- GitHub App Auth ---
+PyJWT[crypto]>=2.8.0       # JSON Web Tokens para GitHub App
+cryptography>=42.0.0       # Firma RSA para JWT
+requests>=2.31.0           # HTTP requests a GitHub API
+
+# --- Telegram ---
+python-telegram-bot>=21.0  # SDK de Telegram Bot API
+
+# --- UX & Logging ---
+rich>=13.0.0               # Output bonito en terminal (colores, spinners, tablas)
+click>=8.1.0               # CLI framework (alternativa más moderna a argparse)
+
+# --- Testing ---
+pytest>=8.0.0              # Framework de testing
+pytest-asyncio>=0.23.0     # Tests async
+pytest-mock>=3.12.0        # Mocking para tests
+
+# --- Calidad de código ---
+ruff>=0.2.0                # Linter + formatter (reemplaza flake8+black+isort)
+mypy>=1.8.0                # Type checking estático

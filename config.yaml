@@ -1,0 +1,96 @@
+# ============================================================
+# config.yaml — Configuración central de Mikalia Bot
+# ============================================================
+# Este archivo controla TODOS los parámetros de Mikalia.
+# Los valores sensibles (API keys, tokens) van en .env
+# ============================================================
+
+mikalia:
+  # Modelo de Claude a usar para generación de contenido
+  # claude-sonnet-4-5-20250929 = última versión, mejor calidad
+  model: "claude-sonnet-4-5-20250929"
+
+  # Tokens máximos por respuesta (4096 ≈ ~3000 palabras)
+  max_tokens: 4096
+
+  # Temperatura: 0.0 = determinista, 1.0 = muy creativo
+  # 0.7 es el sweet spot para contenido de blog
+  generation_temperature: 0.7
+
+  # Temperatura para self-review (más bajo = más crítico)
+  review_temperature: 0.3
+
+  # Máximo de ciclos de corrección en self-review
+  max_review_iterations: 2
+
+blog:
+  # Ruta al repo local del blog Hugo (se sobreescribe con BLOG_REPO_PATH de .env)
+  repo_path: "${BLOG_REPO_PATH}"
+
+  # Formato de rutas de contenido (Blowfish page bundles)
+  # Los posts van en: content/blog/{slug}/index.md (EN) y index.es.md (ES)
+  content_base: "content/blog"
+  en_filename: "index.md"
+  es_filename: "index.es.md"
+
+  # Autor por defecto en front matter
+  author: "Mikalia"
+
+  # Timezone para fechas (Monterrey, México)
+  timezone: "America/Monterrey"
+
+  # Categorías válidas
+  categories:
+    - "ai"
+    - "dev-journal"
+    - "tutorials"
+    - "project-updates"
+    - "thoughts"
+    - "technical"
+    - "stories"
+
+git:
+  # Rama por defecto para push directo (F1/F2)
+  default_branch: "main"
+
+  # Prefijo para commits de posts
+  commit_prefix: "✨"
+
+  # Prefijos para ramas de Mikalia (F3)
+  branch_prefixes:
+    post: "mikalia/post"
+    fix: "mikalia/fix"
+    feat: "mikalia/feat"
+    docs: "mikalia/docs"
+
+github:
+  # Organización de GitHub
+  org: "mikata-ai-lab"
+
+  # Repo del blog
+  blog_repo: "mikata-ai-lab.github.io"
+
+  # Labels automáticos para PRs (F3)
+  pr_labels:
+    post: ["content", "blog", "mikalia-authored"]
+    fix: ["bugfix", "mikalia-authored"]
+    feat: ["enhancement", "mikalia-authored"]
+    docs: ["documentation", "mikalia-authored"]
+
+telegram:
+  # Activar notificaciones por Telegram
+  enabled: false
+
+  # Tipos de notificación
+  notify_on:
+    - "post_published"
+    - "pr_created"
+    - "review_needed"
+    - "error"
+
+notifications:
+  # Formato de mensajes de Telegram
+  post_published: "🌸 ¡Nuevo post publicado!\n📝 {title}\n🔗 {url}"
+  pr_created: "🔀 PR creado por Mikalia\n📝 {title}\n🔗 {pr_url}"
+  review_needed: "👀 Mikalia necesita tu aprobación\n📝 {title}\n🔗 {pr_url}"
+  error: "⚠️ Error en Mikalia\n❌ {error_message}"

@@ -1,0 +1,42 @@
+# ============================================================
+# .gitignore — Archivos excluidos del repositorio
+# ============================================================
+# NUNCA subas secrets, cache, ni archivos generados.
+# ============================================================
+
+# --- Secrets y credenciales ---
+.env
+*.pem
+mikalia-app.pem
+
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# --- Testing y calidad ---
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# --- IDEs ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- Repos cacheados (F2) ---
+.mikalia/
+
+# --- Claude Code ---
+.claude/settings.local.json
