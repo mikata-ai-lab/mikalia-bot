@@ -20,10 +20,25 @@ Uso:
 
 from __future__ import annotations
 
+import io
 import sys
 
 from rich.console import Console
 from rich.theme import Theme
+
+# Fix para Windows: forzar encoding UTF-8 en stdout/stderr
+# La terminal de Windows usa cp1252 por defecto, que no soporta emojis.
+# Wrapeamos stdout con un TextIOWrapper que reemplaza caracteres
+# no encodables en vez de crashear.
+if sys.platform == "win32":
+    if hasattr(sys.stdout, "buffer"):
+        sys.stdout = io.TextIOWrapper(
+            sys.stdout.buffer, encoding="utf-8", errors="replace"
+        )
+    if hasattr(sys.stderr, "buffer"):
+        sys.stderr = io.TextIOWrapper(
+            sys.stderr.buffer, encoding="utf-8", errors="replace"
+        )
 
 # Tema custom de Mikalia para la consola
 # Los colores coinciden con la paleta del blog (gold/amber)
