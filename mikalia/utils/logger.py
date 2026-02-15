@@ -20,6 +20,8 @@ Uso:
 
 from __future__ import annotations
 
+import sys
+
 from rich.console import Console
 from rich.theme import Theme
 
@@ -34,7 +36,12 @@ mikalia_theme = Theme({
     "step": "bold rgb(255,107,53)",    # Orange (#ff6b35)
 })
 
+# Detectar si la terminal soporta Unicode (emojis)
+# Windows con cp1252 no soporta emojis — usamos ASCII alternativo
+_SUPPORTS_EMOJI = sys.stdout.encoding and "utf" in sys.stdout.encoding.lower()
+
 # Consola global — se usa en todo el proyecto
+# force_terminal=True + force_jupyter=False ayuda en Windows
 console = Console(theme=mikalia_theme)
 
 
@@ -54,23 +61,28 @@ class MikaliaLogger:
 
     def info(self, message: str) -> None:
         """Mensaje informativo (cyan)."""
-        console.print(f"[info]ℹ️  {message}[/info]")
+        icon = "i " if not _SUPPORTS_EMOJI else "i  "
+        console.print(f"[info]{icon}{message}[/info]")
 
     def success(self, message: str) -> None:
         """Mensaje de éxito (verde)."""
-        console.print(f"[success]✅ {message}[/success]")
+        icon = "[OK]" if not _SUPPORTS_EMOJI else "[OK]"
+        console.print(f"[success]{icon} {message}[/success]")
 
     def warning(self, message: str) -> None:
         """Mensaje de advertencia (amarillo)."""
-        console.print(f"[warning]⚠️  {message}[/warning]")
+        icon = "[!]" if not _SUPPORTS_EMOJI else "[!] "
+        console.print(f"[warning]{icon} {message}[/warning]")
 
     def error(self, message: str) -> None:
         """Mensaje de error (rojo)."""
-        console.print(f"[error]❌ {message}[/error]")
+        icon = "[X]" if not _SUPPORTS_EMOJI else "[X]"
+        console.print(f"[error]{icon} {message}[/error]")
 
     def mikalia(self, message: str) -> None:
         """Mensaje con la voz de Mikalia (dorado)."""
-        console.print(f"[mikalia]🌸 {message}[/mikalia]")
+        icon = "[Mikalia]" if not _SUPPORTS_EMOJI else "[Mikalia]"
+        console.print(f"[mikalia]{icon} {message}[/mikalia]")
 
     def step(self, number: int, total: int, message: str) -> None:
         """Mensaje de paso en un proceso (naranja)."""

@@ -50,19 +50,19 @@ from mikalia.utils.logger import get_logger, console as rich_console
 logger = get_logger("mikalia.cli")
 
 # Banner de Mikalia para la terminal
+# Nota: Usamos caracteres ASCII simples porque la terminal de Windows
+# (cp1252) no soporta box-drawing Unicode correctamente
 BANNER = """
-[bold rgb(240,165,0)]
-  ╔══════════════════════════════════════╗
-  ║  🌸 MIKALIA BOT — Mikata AI Lab     ║
-  ║  Tu agente autónomo de contenido    ║
-  ╚══════════════════════════════════════╝
-[/bold rgb(240,165,0)]"""
+[bold rgb(240,165,0)]  ========================================
+  MIKALIA BOT -- Mikata AI Lab
+  Tu agente autonomo de contenido
+  ========================================[/bold rgb(240,165,0)]"""
 
 
 @click.group()
 @click.version_option(version="1.0.0", prog_name="Mikalia Bot")
 def main():
-    """🌸 Mikalia Bot — Agente autónomo de IA para Mikata AI Lab."""
+    """* Mikalia Bot — Agente autónomo de IA para Mikata AI Lab."""
     pass
 
 
@@ -174,7 +174,7 @@ def post(
 
 @main.command()
 def interactive():
-    """🌸 Modo interactivo — Mikalia te pregunta el tema."""
+    """* Modo interactivo — Mikalia te pregunta el tema."""
     rich_console.print(BANNER)
 
     # Importar aquí para evitar circular imports
@@ -200,9 +200,9 @@ def config(show: bool, validate: bool):
         tabla.add_row("Temperatura (review)", str(cfg.mikalia.review_temperature))
         tabla.add_row("Blog repo", cfg.blog.repo_path or "(no configurado)")
         tabla.add_row("GitHub org", cfg.github.org)
-        tabla.add_row("Telegram", "✅ Activo" if cfg.telegram.enabled else "❌ Inactivo")
-        tabla.add_row("API Key", "✅ Configurada" if cfg.anthropic_api_key else "❌ Falta")
-        tabla.add_row("GitHub App", "✅ Configurada" if cfg.github_app_id else "❌ Falta")
+        tabla.add_row("Telegram", "[OK] Activo" if cfg.telegram.enabled else "[X] Inactivo")
+        tabla.add_row("API Key", "[OK] Configurada" if cfg.anthropic_api_key else "[X] Falta")
+        tabla.add_row("GitHub App", "[OK] Configurada" if cfg.github_app_id else "[X] Falta")
 
         rich_console.print(tabla)
 
@@ -262,7 +262,7 @@ def health():
     if errores:
         rich_console.print(
             Panel(
-                "\n".join(f"❌ {e}" for e in errores),
+                "\n".join(f"[X] {e}" for e in errores),
                 title="Problemas encontrados",
                 border_style="red",
             )
@@ -270,7 +270,7 @@ def health():
     else:
         rich_console.print(
             Panel(
-                "✅ Todo funcionando correctamente",
+                "[OK] Todo funcionando correctamente",
                 title="Estado de salud",
                 border_style="green",
             )
@@ -289,7 +289,7 @@ def _show_preview(post, formatted):
         f"[bold]Tags:[/bold] {', '.join(post.metadata.tags)}\n"
         f"[bold]Category:[/bold] {post.metadata.category}\n"
         f"[bold]Slug:[/bold] {post.metadata.slug}\n"
-        f"[bold]Review:[/bold] {'✅ Aprobado' if post.review_passed else '⚠️ No aprobado'}",
+        f"[bold]Review:[/bold] {'[OK] Aprobado' if post.review_passed else '[!] No aprobado'}",
         title="📝 Preview del Post",
         border_style="rgb(240,165,0)",
     ))
@@ -308,9 +308,9 @@ def _show_summary(post, commit_hash):
         f"[bold]Título ES:[/bold] {post.metadata.title_es}\n"
         f"[bold]Commit:[/bold] {commit_hash[:7]}\n"
         f"[bold]URL:[/bold] {blog_url}\n"
-        f"[bold]Review:[/bold] {'✅ Aprobado' if post.review_passed else '⚠️ Con advertencia'}\n"
+        f"[bold]Review:[/bold] {'[OK] Aprobado' if post.review_passed else '[!] Con advertencia'}\n"
         f"[bold]Iteraciones:[/bold] {post.review_iterations}",
-        title="🌸 ¡Post Publicado!",
+        title="* ¡Post Publicado!",
         border_style="green",
     ))
 
