@@ -136,12 +136,18 @@ Instructions:
 4. Do NOT remove existing comments or docstrings
 5. Ensure the code is correct and complete
 
-Respond in JSON format:
+Respond in JSON with a list of search/replace edits:
 {{
-    "modified_content": "... (complete file content after changes)",
+    "edits": [
+        {{
+            "search": "... (exact text to find in the file)",
+            "replace": "... (replacement text)"
+        }}
+    ],
     "explanation": "... (explanation of what was changed and why, in Spanish)"
 }}
 
+Each edit replaces one occurrence. Use enough surrounding context in "search" to be unique.
 IMPORTANT: Respond ONLY with valid JSON, no markdown fences."""
 
     CREATE_FILE_PROMPT = """You are a senior software engineer creating a new file.
@@ -166,6 +172,13 @@ Respond in JSON format:
 }}
 
 IMPORTANT: Respond ONLY with valid JSON, no markdown fences."""
+
+    # System prompt para el agente de código (reemplaza a MIKALIA.md)
+    AGENT_SYSTEM = (
+        "You are a precise code generation engine. "
+        "You ALWAYS respond with valid JSON only. "
+        "No markdown fences, no explanations outside JSON, no preamble."
+    )
 
     def __init__(
         self,
@@ -380,17 +393,27 @@ IMPORTANT: Respond ONLY with valid JSON, no markdown fences."""
                 user_prompt=prompt,
                 temperature=0.3,
                 max_tokens=4096,
+                system_override=self.AGENT_SYSTEM,
             )
 
             datos = self._parse_json_response(respuesta.content)
             if not datos:
                 return None
 
+            # Aplicar edits de search/replace al contenido original
+            modified = file_content
+            edits = datos.get("edits", [])
+            for edit in edits:
+                search = edit.get("search", "")
+                replace = edit.get("replace", "")
+                if search and search in modified:
+                    modified = modified.replace(search, replace, 1)
+
             return CodeChange(
                 file=file_path,
                 action="modify",
                 original=file_content,
-                modified=datos.get("modified_content", ""),
+                modified=modified,
                 explanation=datos.get("explanation", ""),
             )
 
@@ -429,6 +452,7 @@ IMPORTANT: Respond ONLY with valid JSON, no markdown fences."""
                 user_prompt=prompt,
                 temperature=0.3,
                 max_tokens=4096,
+                system_override=self.AGENT_SYSTEM,
             )
 
             datos = self._parse_json_response(respuesta.content)
@@ -574,15 +598,34 @@ IMPORTANT: Respond ONLY with valid JSON, no markdown fences."""
         return "\n".join(lineas)
 
     def _parse_json_response(self, response: str) -> dict | None:
-        """Parsea respuesta JSON de Claude."""
+        """Parsea respuesta JSON de Claude, manejando code fences y texto extra."""
+        import re
+
+        texto = response.strip()
+
+        # Intentar extraer JSON de code fences (```json ... ```)
+        fence_match = re.search(r"```(?:json)?\s*\n(.*?)```", texto, re.DOTALL)
+        if fence_match:
+            texto = fence_match.group(1).strip()
+
+        # Intentar parseo directo
         try:
-            texto = response.strip()
-            if texto.startswith("```"):
-                texto = texto.split("\n", 1)[1].rsplit("```", 1)[0].strip()
             return json.loads(texto)
         except json.JSONDecodeError:
-            logger.warning("No se pudo parsear JSON de la respuesta")
-            return None
+            pass
+
+        # Buscar primer { y último } para extraer JSON embebido
+        first_brace = texto.find("{")
+        last_brace = texto.rfind("}")
+        if first_brace != -1 and last_brace > first_brace:
+            try:
+                return json.loads(texto[first_brace:last_brace + 1])
+            except json.JSONDecodeError:
+                pass
+
+        logger.warning("No se pudo parsear JSON de la respuesta")
+        logger.warning(f"Respuesta raw (primeros 300 chars): {response[:300]}")
+        return None
 
     def _safe_read(self, path: Path) -> str:
         """Lee un archivo de forma segura."""

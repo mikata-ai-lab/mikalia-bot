@@ -227,6 +227,11 @@ Rules:
             user_prompt=prompt,
             temperature=0.3,  # Baja para planificación precisa
             max_tokens=2048,
+            system_override=(
+                "You are a precise task planning engine. "
+                "You ALWAYS respond with valid JSON only. "
+                "No markdown fences, no explanations outside JSON."
+            ),
         )
 
         # Parsear el plan
