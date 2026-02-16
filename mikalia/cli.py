@@ -287,6 +287,58 @@ def agent(repo: str, task: str, dry_run: bool):
 
 
 @main.command()
+def chat():
+    """* Modo chat — Habla con Mikalia por Telegram."""
+    rich_console.print(BANNER)
+    logger.mikalia("Modo chat activado. Escuchando en Telegram...")
+
+    try:
+        cfg = load_config()
+
+        if not cfg.telegram_bot_token or not cfg.telegram_chat_id:
+            logger.error(
+                "Telegram no configurado. Necesitas TELEGRAM_BOT_TOKEN y "
+                "TELEGRAM_CHAT_ID en tu .env"
+            )
+            sys.exit(1)
+
+        personality = load_personality()
+        client = MikaliaClient(
+            api_key=cfg.anthropic_api_key,
+            model=cfg.mikalia.model,
+            personality=personality,
+        )
+
+        from mikalia.notifications.telegram_listener import (
+            TelegramListener,
+            MikaliaChatBot,
+        )
+
+        bot = MikaliaChatBot(cfg, client)
+        listener = TelegramListener(
+            bot_token=cfg.telegram_bot_token,
+            chat_id=cfg.telegram_chat_id,
+            on_message=bot.handle_message,
+        )
+
+        rich_console.print(Panel(
+            "Mikalia esta escuchando en Telegram.\n"
+            "Escribele a tu bot para chatear.\n\n"
+            "Presiona Ctrl+C para detener.",
+            title="Chat activo",
+            border_style="rgb(240,165,0)",
+        ))
+
+        listener.listen()
+
+    except KeyboardInterrupt:
+        logger.info("Chat detenido")
+    except Exception as e:
+        logger.error(f"Error en chat: {e}")
+        sys.exit(1)
+
+
+@main.command()
 @click.option("--show", is_flag=True, help="Muestra la configuración actual")
 @click.option("--validate", is_flag=True, help="Valida la configuración")
 def config(show: bool, validate: bool):
