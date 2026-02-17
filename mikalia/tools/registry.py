@@ -90,9 +90,19 @@ class ToolRegistry:
             FileWriteTool,
             FileListTool,
         )
+        from mikalia.tools.shell import ShellExecTool
+        from mikalia.tools.git_ops import (
+            GitStatusTool,
+            GitDiffTool,
+            GitLogTool,
+        )
 
         registry.register(FileReadTool())
         registry.register(FileWriteTool())
         registry.register(FileListTool())
+        registry.register(ShellExecTool())
+        registry.register(GitStatusTool())
+        registry.register(GitDiffTool())
+        registry.register(GitLogTool())
 
         return registry
