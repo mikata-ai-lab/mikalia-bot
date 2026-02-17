@@ -103,6 +103,12 @@ class ToolRegistry:
         )
         from mikalia.tools.web_fetch import WebFetchTool
         from mikalia.tools.blog_post import BlogPostTool
+        from mikalia.tools.github_tools import (
+            GitCommitTool,
+            GitPushTool,
+            GitBranchTool,
+            GitHubPRTool,
+        )
 
         registry.register(FileReadTool())
         registry.register(FileWriteTool())
@@ -113,6 +119,10 @@ class ToolRegistry:
         registry.register(GitLogTool())
         registry.register(WebFetchTool())
         registry.register(BlogPostTool())
+        registry.register(GitCommitTool())
+        registry.register(GitPushTool())
+        registry.register(GitBranchTool())
+        registry.register(GitHubPRTool())
 
         # Memory tools (requieren MemoryManager)
         if memory is not None:

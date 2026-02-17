@@ -106,7 +106,11 @@ class TestRegistryWithAll:
         assert "git_log" in tools
         assert "web_fetch" in tools
         assert "blog_post" in tools
-        assert len(tools) == 9
+        assert "git_commit" in tools
+        assert "git_push" in tools
+        assert "git_branch" in tools
+        assert "github_pr" in tools
+        assert len(tools) == 13
 
     def test_with_defaults_and_memory_has_all_tools(self, tmp_path):
         from pathlib import Path
@@ -121,4 +125,4 @@ class TestRegistryWithAll:
         assert "update_goal" in tools
         assert "list_goals" in tools
         assert "daily_brief" in tools
-        assert len(tools) == 14
+        assert len(tools) == 18
