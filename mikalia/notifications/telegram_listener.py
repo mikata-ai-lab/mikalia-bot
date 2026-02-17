@@ -23,6 +23,7 @@ Uso:
 
 from __future__ import annotations
 
+import threading
 import time
 from typing import Any
 
@@ -439,8 +440,9 @@ class MikaliaCoreBot:
             self._cmd_facts(reply)
             return
 
-        # Agent loop completo
-        self._send_typing()
+        # Agent loop completo — con typing indicator continuo
+        typing_stop = threading.Event()
+        typing_thread = self._start_typing_loop(typing_stop)
 
         try:
             response = self._agent.process_message(
@@ -450,16 +452,32 @@ class MikaliaCoreBot:
             )
             self._session_id = self._agent.session_id
 
+            typing_stop.set()
+            if typing_thread:
+                typing_thread.join(timeout=1)
+
             self._send_response(response, reply)
 
         except Exception as e:
+            typing_stop.set()
+            if typing_thread:
+                typing_thread.join(timeout=1)
             logger.error(f"Error en MikaliaCoreBot: {e}")
             reply(f"Perdon, tuve un error procesando eso: {e}")
 
-    def _send_typing(self):
-        """Envia indicador de typing si hay listener."""
-        if self._listener:
-            self._listener.send_typing()
+    def _start_typing_loop(self, stop_event: threading.Event) -> threading.Thread | None:
+        """Inicia un thread que envia typing cada 4 seg hasta que stop_event se active."""
+        if not self._listener:
+            return None
+
+        def _loop():
+            while not stop_event.is_set():
+                self._listener.send_typing()
+                stop_event.wait(timeout=4)
+
+        t = threading.Thread(target=_loop, daemon=True)
+        t.start()
+        return t
 
     def _send_response(self, response: str, reply):
         """Envia respuesta formateada, con chunks si es necesario."""
