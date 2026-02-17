@@ -347,3 +347,77 @@ class MikaliaChatBot:
             reply(clean)
         except Exception as e:
             reply(f"Perdon, tuve un error: {e}")
+
+
+class MikaliaCoreBot:
+    """
+    Chatbot que usa MikaliaAgent (Core) para responder.
+
+    A diferencia de MikaliaChatBot (que es command-based),
+    este usa el agent loop completo con memoria, tools,
+    y self-improvement.
+
+    Args:
+        agent: MikaliaAgent ya inicializado.
+    """
+
+    def __init__(self, agent) -> None:
+        from mikalia.core.agent import MikaliaAgent
+        self._agent: MikaliaAgent = agent
+        self._session_id: str | None = None
+
+    def handle_message(self, text: str, reply):
+        """
+        Procesa un mensaje con el agente completo.
+
+        Args:
+            text: Texto del mensaje.
+            reply: Funcion para enviar respuesta.
+        """
+        text_lower = text.lower().strip()
+
+        # Comandos de Telegram basicos
+        if text_lower.startswith("/start"):
+            reply(
+                "Hola Mikata-kun~ Soy Mikalia Core.\n\n"
+                "Ahora tengo memoria, herramientas, y aprendo "
+                "de cada conversacion.\n\n"
+                "Escribeme lo que necesites~"
+            )
+            return
+
+        if text_lower.startswith("/help"):
+            reply(
+                "<b>Mikalia Core via Telegram:</b>\n\n"
+                "Puedes escribirme cualquier cosa:\n"
+                "- Preguntas sobre tus proyectos\n"
+                "- Pedir que revise archivos\n"
+                "- Consultar goals y progreso\n"
+                "- Chatear libremente\n\n"
+                "Uso mis herramientas automaticamente "
+                "cuando las necesito~"
+            )
+            return
+
+        try:
+            response = self._agent.process_message(
+                message=text,
+                channel="telegram",
+                session_id=self._session_id,
+            )
+            self._session_id = self._agent.session_id
+
+            # Telegram tiene limite de 4096 chars
+            if len(response) > 4000:
+                # Enviar en chunks
+                for i in range(0, len(response), 4000):
+                    chunk = response[i:i + 4000]
+                    reply(chunk)
+            else:
+                # Limpiar markdown que Telegram no soporta bien
+                clean = response.replace("**", "").replace("*", "")
+                reply(clean)
+
+        except Exception as e:
+            logger.error(f"Error en MikaliaCoreBot: {e}")
+            reply(f"Perdon, tuve un error procesando eso: {e}")

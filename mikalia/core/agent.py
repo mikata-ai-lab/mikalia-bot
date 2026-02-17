@@ -57,7 +57,7 @@ class MikaliaAgent:
             api_key=self._config.anthropic_api_key,
             model=self._config.mikalia.model,
         )
-        self._tools = tool_registry or ToolRegistry.with_defaults()
+        self._tools = tool_registry or ToolRegistry.with_defaults(memory=self._memory)
         self._context_builder = ContextBuilder(
             memory=self._memory,
             tool_registry=self._tools,

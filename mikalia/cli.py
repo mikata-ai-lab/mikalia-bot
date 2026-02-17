@@ -287,10 +287,15 @@ def agent(repo: str, task: str, dry_run: bool):
 
 
 @main.command()
-def chat():
+@click.option(
+    "--core",
+    is_flag=True,
+    default=False,
+    help="Usar Mikalia Core (memoria + tools + self-improvement)",
+)
+def chat(core: bool):
     """* Modo chat — Habla con Mikalia por Telegram."""
     rich_console.print(BANNER)
-    logger.mikalia("Modo chat activado. Escuchando en Telegram...")
 
     try:
         cfg = load_config()
@@ -302,19 +307,44 @@ def chat():
             )
             sys.exit(1)
 
-        personality = load_personality()
-        client = MikaliaClient(
-            api_key=cfg.anthropic_api_key,
-            model=cfg.mikalia.model,
-            personality=personality,
-        )
+        from mikalia.notifications.telegram_listener import TelegramListener
 
-        from mikalia.notifications.telegram_listener import (
-            TelegramListener,
-            MikaliaChatBot,
-        )
+        if core:
+            logger.mikalia("Modo chat CORE activado. Memoria + Tools + Self-improvement.")
 
-        bot = MikaliaChatBot(cfg, client)
+            from mikalia.core.agent import MikaliaAgent
+            from mikalia.notifications.telegram_listener import MikaliaCoreBot
+
+            agent = MikaliaAgent()
+            bot = MikaliaCoreBot(agent)
+
+            mode_title = "Chat Core activo"
+            mode_desc = (
+                "Mikalia Core esta escuchando en Telegram.\n"
+                "Memoria, herramientas, y aprendizaje activos.\n\n"
+                "Presiona Ctrl+C para detener."
+            )
+        else:
+            logger.mikalia("Modo chat basico activado. Escuchando en Telegram...")
+
+            personality = load_personality()
+            client = MikaliaClient(
+                api_key=cfg.anthropic_api_key,
+                model=cfg.mikalia.model,
+                personality=personality,
+            )
+
+            from mikalia.notifications.telegram_listener import MikaliaChatBot
+
+            bot = MikaliaChatBot(cfg, client)
+
+            mode_title = "Chat activo"
+            mode_desc = (
+                "Mikalia esta escuchando en Telegram.\n"
+                "Escribele a tu bot para chatear.\n\n"
+                "Presiona Ctrl+C para detener."
+            )
+
         listener = TelegramListener(
             bot_token=cfg.telegram_bot_token,
             chat_id=cfg.telegram_chat_id,
@@ -322,10 +352,8 @@ def chat():
         )
 
         rich_console.print(Panel(
-            "Mikalia esta escuchando en Telegram.\n"
-            "Escribele a tu bot para chatear.\n\n"
-            "Presiona Ctrl+C para detener.",
-            title="Chat activo",
+            mode_desc,
+            title=mode_title,
             border_style="rgb(240,165,0)",
         ))
 

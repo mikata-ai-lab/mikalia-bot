@@ -104,4 +104,19 @@ class TestRegistryWithAll:
         assert "git_status" in tools
         assert "git_diff" in tools
         assert "git_log" in tools
-        assert len(tools) == 7
+        assert "web_fetch" in tools
+        assert len(tools) == 8
+
+    def test_with_defaults_and_memory_has_all_tools(self, tmp_path):
+        from pathlib import Path
+        from mikalia.core.memory import MemoryManager
+        schema = Path(__file__).parent.parent / "schema.sql"
+        db = tmp_path / "test_reg.db"
+        mem = MemoryManager(db_path=str(db), schema_path=str(schema))
+        registry = ToolRegistry.with_defaults(memory=mem)
+        tools = registry.list_tools()
+        assert "search_memory" in tools
+        assert "add_fact" in tools
+        assert "update_goal" in tools
+        assert "list_goals" in tools
+        assert len(tools) == 12

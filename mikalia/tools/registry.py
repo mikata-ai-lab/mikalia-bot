@@ -81,8 +81,13 @@ class ToolRegistry:
         return list(self._tools.keys())
 
     @classmethod
-    def with_defaults(cls) -> ToolRegistry:
-        """Crea un registry con los tools por defecto de Mikalia."""
+    def with_defaults(cls, memory: Any = None) -> ToolRegistry:
+        """
+        Crea un registry con los tools por defecto de Mikalia.
+
+        Args:
+            memory: MemoryManager para memory tools (opcional).
+        """
         registry = cls()
 
         from mikalia.tools.file_ops import (
@@ -96,6 +101,7 @@ class ToolRegistry:
             GitDiffTool,
             GitLogTool,
         )
+        from mikalia.tools.web_fetch import WebFetchTool
 
         registry.register(FileReadTool())
         registry.register(FileWriteTool())
@@ -104,5 +110,20 @@ class ToolRegistry:
         registry.register(GitStatusTool())
         registry.register(GitDiffTool())
         registry.register(GitLogTool())
+        registry.register(WebFetchTool())
+
+        # Memory tools (requieren MemoryManager)
+        if memory is not None:
+            from mikalia.tools.memory_tools import (
+                SearchMemoryTool,
+                AddFactTool,
+                UpdateGoalTool,
+                ListGoalsTool,
+            )
+
+            registry.register(SearchMemoryTool(memory))
+            registry.register(AddFactTool(memory))
+            registry.register(UpdateGoalTool(memory))
+            registry.register(ListGoalsTool(memory))
 
         return registry
