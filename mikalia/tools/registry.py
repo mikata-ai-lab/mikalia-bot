@@ -102,6 +102,7 @@ class ToolRegistry:
             GitLogTool,
         )
         from mikalia.tools.web_fetch import WebFetchTool
+        from mikalia.tools.blog_post import BlogPostTool
 
         registry.register(FileReadTool())
         registry.register(FileWriteTool())
@@ -111,6 +112,7 @@ class ToolRegistry:
         registry.register(GitDiffTool())
         registry.register(GitLogTool())
         registry.register(WebFetchTool())
+        registry.register(BlogPostTool())
 
         # Memory tools (requieren MemoryManager)
         if memory is not None:
@@ -120,10 +122,12 @@ class ToolRegistry:
                 UpdateGoalTool,
                 ListGoalsTool,
             )
+            from mikalia.tools.daily_brief import DailyBriefTool
 
             registry.register(SearchMemoryTool(memory))
             registry.register(AddFactTool(memory))
             registry.register(UpdateGoalTool(memory))
             registry.register(ListGoalsTool(memory))
+            registry.register(DailyBriefTool(memory))
 
         return registry

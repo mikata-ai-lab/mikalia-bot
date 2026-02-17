@@ -200,18 +200,20 @@ INSERT INTO facts (category, subject, fact, source) VALUES
     ('project', 'mikalia-dashboard', 'Dashboard en React+Vite. Ruta: ../mikalia-dashboard. Deploy: Vercel.', 'manual');
 
 -- Seed initial goals
-INSERT INTO goals (project, title, description, status, priority, phase) VALUES
-    ('mikalia-core', 'Agent Loop básico', 'CLI funcional con agent loop: input → context → Claude → response → save', 'active', 'critical', 'F1'),
-    ('mikalia-core', 'Memory system', 'SQLite memory con conversations, facts, sessions', 'active', 'critical', 'F1'),
-    ('mikalia-core', 'LLM wrapper', 'Claude API wrapper con system prompt de Mikalia', 'active', 'critical', 'F1'),
-    ('mikalia-core', 'Tool system base', 'Interfaz base + file_ops + shell tools', 'active', 'high', 'F1'),
-    ('mikalia-core', 'Telegram bot', 'Canal Telegram funcional bidireccional', 'active', 'critical', 'F2'),
-    ('mikalia-core', 'Blog posting autónomo', 'Crear y publicar posts en Hugo + GitHub Pages', 'active', 'critical', 'F2'),
-    ('mikalia-core', 'Daily brief', 'Resumen matutino automático por Telegram', 'active', 'critical', 'F2'),
-    ('mikalia-core', 'Health pact reminders', 'Recordatorios del pacto de salud', 'active', 'high', 'F2'),
-    ('mikalia-core', 'Goal tracking', 'Seguimiento y reportes de progreso', 'active', 'high', 'F2'),
-    ('learning', 'Python avanzado', 'Dominar Python para AI/ML: async, dataclasses, typing, testing', 'active', 'high', NULL),
-    ('learning', 'Azure AI-102', 'Preparación para certificación Azure AI Engineer', 'active', 'medium', NULL);
+INSERT INTO goals (project, title, description, status, priority, phase, progress) VALUES
+    ('mikalia-core', 'Agent Loop básico', 'CLI funcional con agent loop: input → context → Claude → response → save', 'completed', 'critical', 'F1', 100),
+    ('mikalia-core', 'Memory system', 'SQLite memory con conversations, facts, sessions', 'completed', 'critical', 'F1', 100),
+    ('mikalia-core', 'LLM wrapper', 'Claude API wrapper con system prompt de Mikalia + tool_use', 'completed', 'critical', 'F1', 100),
+    ('mikalia-core', 'Tool system base', 'Interfaz base + 14 tools (file, shell, git, web, memory, blog, brief)', 'completed', 'high', 'F1', 100),
+    ('mikalia-core', 'Telegram bot', 'Canal Telegram funcional bidireccional + Core mode', 'completed', 'critical', 'F2', 100),
+    ('mikalia-core', 'Blog posting autónomo', 'Crear y publicar posts en Hugo + GitHub Pages via blog_post tool', 'completed', 'critical', 'F2', 100),
+    ('mikalia-core', 'Daily brief', 'Resumen diario con goals, facts, stats via daily_brief tool', 'active', 'critical', 'F2', 70),
+    ('mikalia-core', 'Health pact reminders', 'Recordatorios del pacto de salud (integrado en system prompt)', 'active', 'high', 'F2', 50),
+    ('mikalia-core', 'Goal tracking', 'Seguimiento y reportes de progreso via update_goal + list_goals tools', 'completed', 'high', 'F2', 100),
+    ('mikalia-core', 'Deploy a servidor', 'Desplegar Mikalia Core en VPS para que funcione 24/7', 'active', 'high', 'F3', 0),
+    ('mikalia-core', 'Self-improvement', 'Mikalia aprende hechos nuevos de cada conversacion automaticamente', 'completed', 'high', 'F2', 100),
+    ('learning', 'Python avanzado', 'Dominar Python para AI/ML: async, dataclasses, typing, testing', 'active', 'high', NULL, 30),
+    ('learning', 'Azure AI-102', 'Preparación para certificación Azure AI Engineer', 'active', 'medium', NULL, 0);
 
 -- Seed initial scheduled jobs
 INSERT INTO scheduled_jobs (name, description, cron_expression, action, channel) VALUES
