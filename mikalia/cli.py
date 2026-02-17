@@ -339,6 +339,100 @@ def chat():
 
 
 @main.command()
+def core():
+    """Mikalia Core — Agente autonomo con memoria y tools."""
+    from rich.prompt import Prompt
+
+    rich_console.print(BANNER)
+    logger.mikalia("Mikalia Core activado. Escribe /quit para salir.")
+
+    try:
+        from mikalia.core.agent import MikaliaAgent
+
+        agent = MikaliaAgent()
+        session_id = None
+
+        rich_console.print(Panel(
+            "Soy Mikalia Core. Tengo memoria, herramientas, y un corazon.\n"
+            "Escribe lo que necesites. Yo me encargo.\n\n"
+            "Comandos: /quit /goals /facts",
+            title="Mikalia Core v2.0",
+            border_style="rgb(240,165,0)",
+        ))
+
+        while True:
+            try:
+                user_input = Prompt.ask("\n[bold cyan]Tu[/bold cyan]")
+            except (KeyboardInterrupt, EOFError):
+                break
+
+            if not user_input.strip():
+                continue
+
+            cmd = user_input.strip().lower()
+
+            if cmd == "/quit":
+                break
+
+            if cmd == "/goals":
+                _show_goals(agent)
+                continue
+
+            if cmd == "/facts":
+                _show_facts(agent)
+                continue
+
+            with rich_console.status(
+                "[bold rgb(240,165,0)]Mikalia esta pensando...[/bold rgb(240,165,0)]",
+                spinner="dots",
+            ):
+                response = agent.process_message(
+                    message=user_input,
+                    channel="cli",
+                    session_id=session_id,
+                )
+                session_id = agent.session_id
+
+            rich_console.print(
+                f"\n[bold rgb(240,165,0)]Mikalia:[/bold rgb(240,165,0)] {response}"
+            )
+
+    except KeyboardInterrupt:
+        pass
+
+    logger.mikalia("Hasta luego, Mikata-kun. Cuida tu salud.")
+
+
+def _show_goals(agent):
+    """Muestra goals activos desde la memoria."""
+    goals = agent.memory.get_active_goals()
+    tabla = Table(title="Goals Activos")
+    tabla.add_column("ID", style="cyan")
+    tabla.add_column("Proyecto", style="green")
+    tabla.add_column("Titulo")
+    tabla.add_column("Progreso", style="rgb(240,165,0)")
+    tabla.add_column("Prioridad")
+    for g in goals:
+        tabla.add_row(
+            str(g["id"]), g["project"], g["title"],
+            f"{g['progress']}%", g.get("priority", "")
+        )
+    rich_console.print(tabla)
+
+
+def _show_facts(agent):
+    """Muestra facts conocidos desde la memoria."""
+    facts = agent.memory.get_facts()
+    tabla = Table(title="Facts Conocidos")
+    tabla.add_column("Categoria", style="cyan")
+    tabla.add_column("Sujeto", style="green")
+    tabla.add_column("Fact")
+    for f in facts[:15]:
+        tabla.add_row(f["category"], f["subject"], f["fact"][:80])
+    rich_console.print(tabla)
+
+
+@main.command()
 @click.option("--show", is_flag=True, help="Muestra la configuración actual")
 @click.option("--validate", is_flag=True, help="Valida la configuración")
 def config(show: bool, validate: bool):

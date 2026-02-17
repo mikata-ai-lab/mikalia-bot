@@ -27,7 +27,8 @@ Uso:
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 
 import anthropic
 from rich.console import Console
@@ -55,6 +56,13 @@ class APIResponse:
     input_tokens: int
     output_tokens: int
     stop_reason: str
+    tool_calls: list[dict] = field(default_factory=list)
+    raw_content: list[Any] = field(default_factory=list)
+
+    @property
+    def has_tool_use(self) -> bool:
+        """True si Claude respondio con tool_use blocks."""
+        return self.stop_reason == "tool_use" and len(self.tool_calls) > 0
 
 
 class MikaliaClient:
@@ -259,4 +267,99 @@ class MikaliaClient:
                 time.sleep(tiempo_espera)
 
         # Si llegamos aquí, todos los reintentos fallaron
+        raise ultimo_error  # type: ignore[misc]
+
+    def chat_with_tools(
+        self,
+        messages: list[dict],
+        tools: list[dict] | None = None,
+        system: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int = 4096,
+    ) -> APIResponse:
+        """
+        Chat con soporte para tool_use de Claude.
+
+        A diferencia de generate() que envia un solo prompt,
+        este metodo maneja una sola ronda de Claude con tool definitions.
+        El caller (MikaliaAgent) se encarga del loop de tool calls.
+
+        Args:
+            messages: Lista de mensajes en formato Claude API.
+            tools: Definiciones de tools (de ToolRegistry).
+            system: System prompt (override).
+            temperature: Creatividad.
+            max_tokens: Limite de respuesta.
+
+        Returns:
+            APIResponse con tool_calls y raw_content si Claude pidio tools.
+        """
+        system_prompt = system or self._system_prompt
+        ultimo_error = None
+
+        for intento in range(self._max_retries):
+            try:
+                kwargs: dict[str, Any] = {
+                    "model": self._model,
+                    "max_tokens": max_tokens,
+                    "temperature": temperature,
+                    "system": system_prompt,
+                    "messages": messages,
+                }
+                if tools:
+                    kwargs["tools"] = tools
+
+                response = self._client.messages.create(**kwargs)
+
+                # Extraer texto y tool_use blocks
+                text_parts = []
+                tool_calls = []
+                raw_content = []
+
+                for block in response.content:
+                    if block.type == "text":
+                        text_parts.append(block.text)
+                        raw_content.append({
+                            "type": "text",
+                            "text": block.text,
+                        })
+                    elif block.type == "tool_use":
+                        tool_calls.append({
+                            "id": block.id,
+                            "name": block.name,
+                            "input": block.input,
+                        })
+                        raw_content.append({
+                            "type": "tool_use",
+                            "id": block.id,
+                            "name": block.name,
+                            "input": block.input,
+                        })
+
+                return APIResponse(
+                    content="\n".join(text_parts),
+                    model=response.model,
+                    input_tokens=response.usage.input_tokens,
+                    output_tokens=response.usage.output_tokens,
+                    stop_reason=response.stop_reason,
+                    tool_calls=tool_calls,
+                    raw_content=raw_content,
+                )
+
+            except anthropic.RateLimitError as e:
+                ultimo_error = e
+                tiempo_espera = (2 ** intento) * 2
+                time.sleep(tiempo_espera)
+
+            except anthropic.APIStatusError as e:
+                ultimo_error = e
+                if e.status_code >= 500:
+                    time.sleep(2 ** intento)
+                else:
+                    raise
+
+            except anthropic.APIConnectionError as e:
+                ultimo_error = e
+                time.sleep(2 ** intento)
+
         raise ultimo_error  # type: ignore[misc]
