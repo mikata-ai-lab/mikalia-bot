@@ -316,12 +316,20 @@ def chat(core: bool):
             from mikalia.notifications.telegram_listener import MikaliaCoreBot
 
             agent = MikaliaAgent()
-            bot = MikaliaCoreBot(agent)
+
+            # Crear listener primero para pasar typing indicator al bot
+            listener = TelegramListener(
+                bot_token=cfg.telegram_bot_token,
+                chat_id=cfg.telegram_chat_id,
+            )
+            bot = MikaliaCoreBot(agent, listener=listener)
+            listener._on_message = bot.handle_message
 
             mode_title = "Chat Core activo"
             mode_desc = (
-                "Mikalia Core esta escuchando en Telegram.\n"
-                "Memoria, herramientas, y aprendizaje activos.\n\n"
+                "Mikalia Core v2.0 escuchando en Telegram.\n"
+                "14 tools, memoria, y aprendizaje activos.\n"
+                "Comandos: /brief /goals /facts /help\n\n"
                 "Presiona Ctrl+C para detener."
             )
         else:
@@ -345,11 +353,12 @@ def chat(core: bool):
                 "Presiona Ctrl+C para detener."
             )
 
-        listener = TelegramListener(
-            bot_token=cfg.telegram_bot_token,
-            chat_id=cfg.telegram_chat_id,
-            on_message=bot.handle_message,
-        )
+        if not core:
+            listener = TelegramListener(
+                bot_token=cfg.telegram_bot_token,
+                chat_id=cfg.telegram_chat_id,
+                on_message=bot.handle_message,
+            )
 
         rich_console.print(Panel(
             mode_desc,

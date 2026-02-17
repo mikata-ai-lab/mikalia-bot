@@ -99,8 +99,15 @@ class WebFetchTool(BaseTool):
                 url,
                 timeout=15,
                 headers={
-                    "User-Agent": "Mikalia-Bot/2.0 (autonomous AI agent)",
+                    "User-Agent": (
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/120.0.0.0 Safari/537.36"
+                    ),
+                    "Accept": "text/html,application/xhtml+xml,application/json",
+                    "Accept-Language": "en-US,en;q=0.9,es;q=0.8",
                 },
+                allow_redirects=True,
             )
             resp.raise_for_status()
 

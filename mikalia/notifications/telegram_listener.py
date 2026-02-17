@@ -76,6 +76,18 @@ class TelegramListener:
             logger.error(f"Error enviando mensaje: {e}")
             return False
 
+    def send_typing(self) -> None:
+        """Envia indicador de 'typing...' al chat."""
+        url = f"{self._api_url}/sendChatAction"
+        payload = {
+            "chat_id": self._chat_id,
+            "action": "typing",
+        }
+        try:
+            requests.post(url, json=payload, timeout=5)
+        except Exception:
+            pass
+
     def listen(self, poll_interval: int = 1):
         """
         Inicia el loop de escucha con long polling.
@@ -357,47 +369,78 @@ class MikaliaCoreBot:
     este usa el agent loop completo con memoria, tools,
     y self-improvement.
 
+    Comandos rapidos (no pasan por el agent loop):
+        /start  — Saludo
+        /help   — Ayuda
+        /brief  — Daily brief rapido
+        /goals  — Goals activos
+        /facts  — Facts conocidos
+
+    Todo lo demas pasa por el agent loop completo.
+
     Args:
         agent: MikaliaAgent ya inicializado.
+        listener: TelegramListener para enviar typing indicator.
     """
 
-    def __init__(self, agent) -> None:
+    def __init__(self, agent, listener=None) -> None:
         from mikalia.core.agent import MikaliaAgent
         self._agent: MikaliaAgent = agent
+        self._listener = listener
         self._session_id: str | None = None
 
     def handle_message(self, text: str, reply):
-        """
-        Procesa un mensaje con el agente completo.
-
-        Args:
-            text: Texto del mensaje.
-            reply: Funcion para enviar respuesta.
-        """
+        """Procesa un mensaje con el agente completo."""
         text_lower = text.lower().strip()
 
-        # Comandos de Telegram basicos
+        # Comandos rapidos (no usan API)
         if text_lower.startswith("/start"):
             reply(
-                "Hola Mikata-kun~ Soy Mikalia Core.\n\n"
-                "Ahora tengo memoria, herramientas, y aprendo "
+                "Hola Mikata-kun~ Soy Mikalia Core v2.0\n\n"
+                "Tengo memoria, 14 herramientas, y aprendo "
                 "de cada conversacion.\n\n"
-                "Escribeme lo que necesites~"
+                "Comandos rapidos:\n"
+                "/brief — Resumen del dia\n"
+                "/goals — Ver goals activos\n"
+                "/facts — Que se de ti\n"
+                "/help — Ayuda completa\n\n"
+                "O simplemente escribeme lo que necesites~"
             )
             return
 
         if text_lower.startswith("/help"):
             reply(
-                "<b>Mikalia Core via Telegram:</b>\n\n"
-                "Puedes escribirme cualquier cosa:\n"
-                "- Preguntas sobre tus proyectos\n"
-                "- Pedir que revise archivos\n"
-                "- Consultar goals y progreso\n"
-                "- Chatear libremente\n\n"
-                "Uso mis herramientas automaticamente "
-                "cuando las necesito~"
+                "<b>Mikalia Core v2.0</b>\n\n"
+                "<b>Comandos rapidos:</b>\n"
+                "/brief — Resumen diario\n"
+                "/goals — Goals activos\n"
+                "/facts — Mis recuerdos\n\n"
+                "<b>Puedo hacer:</b>\n"
+                "- Investigar temas en la web\n"
+                "- Crear y publicar posts en el blog\n"
+                "- Revisar archivos y repos\n"
+                "- Recordar cosas que me cuentes\n"
+                "- Ejecutar comandos del sistema\n"
+                "- Consultar y actualizar goals\n\n"
+                "<i>Escribeme lo que necesites, yo uso "
+                "mis herramientas automaticamente~</i>"
             )
             return
+
+        if text_lower.startswith("/brief"):
+            self._cmd_brief(reply)
+            return
+
+        if text_lower.startswith("/goals"):
+            self._cmd_goals(reply)
+            return
+
+        if text_lower.startswith("/facts"):
+            self._cmd_facts(reply)
+            return
+
+        # Agent loop completo
+        self._send_typing()
 
         try:
             response = self._agent.process_message(
@@ -407,17 +450,86 @@ class MikaliaCoreBot:
             )
             self._session_id = self._agent.session_id
 
-            # Telegram tiene limite de 4096 chars
-            if len(response) > 4000:
-                # Enviar en chunks
-                for i in range(0, len(response), 4000):
-                    chunk = response[i:i + 4000]
-                    reply(chunk)
-            else:
-                # Limpiar markdown que Telegram no soporta bien
-                clean = response.replace("**", "").replace("*", "")
-                reply(clean)
+            self._send_response(response, reply)
 
         except Exception as e:
             logger.error(f"Error en MikaliaCoreBot: {e}")
             reply(f"Perdon, tuve un error procesando eso: {e}")
+
+    def _send_typing(self):
+        """Envia indicador de typing si hay listener."""
+        if self._listener:
+            self._listener.send_typing()
+
+    def _send_response(self, response: str, reply):
+        """Envia respuesta formateada, con chunks si es necesario."""
+        # Limpiar markdown que Telegram no soporta
+        clean = response.replace("**", "<b>").replace("*", "<i>")
+        # Fix: cerrar tags que quedaron abiertos
+        if clean.count("<b>") != clean.count("</b>"):
+            clean = clean.replace("<b>", "").replace("</b>", "")
+        if clean.count("<i>") != clean.count("</i>"):
+            clean = clean.replace("<i>", "").replace("</i>", "")
+
+        if len(clean) > 4000:
+            for i in range(0, len(clean), 4000):
+                reply(clean[i:i + 4000])
+        else:
+            reply(clean)
+
+    def _cmd_brief(self, reply):
+        """Genera daily brief rapido sin pasar por el agent loop."""
+        self._send_typing()
+        try:
+            from mikalia.tools.daily_brief import DailyBriefTool
+            tool = DailyBriefTool(self._agent.memory)
+            result = tool.execute(format="telegram")
+            reply(result.output if result.success else f"Error: {result.error}")
+        except Exception as e:
+            reply(f"Error generando brief: {e}")
+
+    def _cmd_goals(self, reply):
+        """Muestra goals activos."""
+        try:
+            goals = self._agent.memory.get_active_goals()
+            if not goals:
+                reply("No hay goals activos.")
+                return
+
+            lines = ["<b>Goals activos:</b>\n"]
+            for g in goals:
+                bar = self._progress_bar(g["progress"])
+                lines.append(
+                    f"<b>#{g['id']}</b> [{g.get('priority', 'medium').upper()}] "
+                    f"{g['project']}\n"
+                    f"  {g['title']}\n"
+                    f"  {bar} {g['progress']}%\n"
+                )
+            reply("\n".join(lines))
+        except Exception as e:
+            reply(f"Error listando goals: {e}")
+
+    def _cmd_facts(self, reply):
+        """Muestra facts conocidos."""
+        try:
+            facts = self._agent.memory.get_facts(active_only=True)
+            if not facts:
+                reply("No tengo facts guardados aun.")
+                return
+
+            lines = [f"<b>Recuerdo {len(facts)} cosas:</b>\n"]
+            for f in facts[:15]:
+                lines.append(
+                    f"[{f['category']}] <b>{f['subject']}</b>: "
+                    f"{f['fact'][:80]}"
+                )
+            if len(facts) > 15:
+                lines.append(f"\n<i>... y {len(facts) - 15} mas</i>")
+            reply("\n".join(lines))
+        except Exception as e:
+            reply(f"Error listando facts: {e}")
+
+    @staticmethod
+    def _progress_bar(progress: int, width: int = 10) -> str:
+        filled = int(width * progress / 100)
+        return "[" + "#" * filled + "." * (width - filled) + "]"
