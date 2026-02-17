@@ -4,6 +4,9 @@ shell.py — Tool de ejecucion de comandos shell para Mikalia.
 Permite ejecutar comandos del sistema con whitelist de seguridad.
 Solo permite comandos aprobados para prevenir acciones peligrosas.
 
+Nota: Maneja diferencias entre Windows (cmd.exe) y Unix (bash).
+Por ejemplo, `mkdir -p` se convierte a os.makedirs en Windows.
+
 Uso:
     from mikalia.tools.shell import ShellExecTool
     tool = ShellExecTool()
@@ -12,7 +15,10 @@ Uso:
 
 from __future__ import annotations
 
+import os
+import platform
 import subprocess
+from pathlib import Path
 from typing import Any
 
 from mikalia.tools.base import BaseTool, ToolResult
@@ -91,6 +97,12 @@ class ShellExecTool(BaseTool):
                 ),
             )
 
+        # Windows compat: mkdir -p no existe en cmd.exe
+        # Usamos os.makedirs directamente
+        handled = self._handle_cross_platform(command, cwd)
+        if handled is not None:
+            return handled
+
         logger.info(f"Ejecutando: {command}")
 
         try:
@@ -122,3 +134,37 @@ class ShellExecTool(BaseTool):
             )
         except OSError as e:
             return ToolResult(success=False, error=f"Error de sistema: {e}")
+
+    def _handle_cross_platform(
+        self, command: str, cwd: str
+    ) -> ToolResult | None:
+        """
+        Maneja comandos que difieren entre Windows y Unix.
+
+        Retorna ToolResult si el comando fue manejado, None si no.
+        """
+        stripped = command.strip()
+
+        # mkdir -p <path> → os.makedirs (cross-platform)
+        if stripped.startswith("mkdir"):
+            parts = stripped.split()
+            # Quitar flags como -p, -m, etc
+            dirs = [p for p in parts[1:] if not p.startswith("-")]
+            if not dirs:
+                return ToolResult(
+                    success=False, error="mkdir: falta la ruta del directorio"
+                )
+            try:
+                base = Path(cwd) if cwd != "." else Path.cwd()
+                for d in dirs:
+                    target = base / d if not Path(d).is_absolute() else Path(d)
+                    target.mkdir(parents=True, exist_ok=True)
+                    logger.info(f"Directorio creado: {target}")
+                return ToolResult(
+                    success=True,
+                    output=f"Directorio(s) creado(s): {', '.join(dirs)}",
+                )
+            except OSError as e:
+                return ToolResult(success=False, error=f"Error creando directorio: {e}")
+
+        return None
