@@ -40,3 +40,6 @@ Thumbs.db
 
 # --- Claude Code ---
 .claude/settings.local.json
+
+# --- Data y memoria (info sensible) ---
+data/
