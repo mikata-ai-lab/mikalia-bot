@@ -23,6 +23,7 @@ Uso:
 
 from __future__ import annotations
 
+import re
 import threading
 import time
 from typing import Any
@@ -32,6 +33,49 @@ import requests
 from mikalia.utils.logger import get_logger
 
 logger = get_logger("mikalia.telegram_listener")
+
+
+def _markdown_to_telegram(text: str) -> str:
+    """
+    Convierte markdown de Claude a HTML de Telegram.
+
+    Maneja: code blocks, inline code, bold, italic, headers, listas.
+    Telegram soporta: <b>, <i>, <code>, <pre>, <a>.
+    """
+    # 1. Proteger code blocks (``` ... ```)
+    code_blocks: list[str] = []
+
+    def _save_code_block(match: re.Match) -> str:
+        lang = match.group(1) or ""
+        code = match.group(2).strip()
+        code_blocks.append(f"<pre><code>{code}</code></pre>")
+        return f"\x00CODEBLOCK{len(code_blocks) - 1}\x00"
+
+    text = re.sub(r"```(\w*)\n?(.*?)```", _save_code_block, text, flags=re.DOTALL)
+
+    # 2. Inline code (`...`)
+    text = re.sub(r"`([^`]+)`", r"<code>\1</code>", text)
+
+    # 3. Headers (## ... → bold)
+    text = re.sub(r"^#{1,4}\s+(.+)$", r"<b>\1</b>", text, flags=re.MULTILINE)
+
+    # 4. Bold (**...**)
+    text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text)
+
+    # 5. Italic (*...*)  — solo si no es parte de lista
+    text = re.sub(r"(?<!\w)\*(?!\s)(.+?)(?<!\s)\*(?!\w)", r"<i>\1</i>", text)
+
+    # 6. Links [text](url) → text (url)
+    text = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', text)
+
+    # 7. Bullet lists (- item → • item)
+    text = re.sub(r"^[-*]\s+", "• ", text, flags=re.MULTILINE)
+
+    # 8. Restaurar code blocks
+    for i, block in enumerate(code_blocks):
+        text = text.replace(f"\x00CODEBLOCK{i}\x00", block)
+
+    return text.strip()
 
 
 class TelegramListener:
@@ -390,6 +434,18 @@ class MikaliaCoreBot:
         self._listener = listener
         self._session_id: str | None = self._resume_session()
 
+    def shutdown(self) -> None:
+        """Cierre limpio: finaliza la sesion en memoria."""
+        if self._session_id:
+            try:
+                self._agent.memory.end_session(
+                    self._session_id,
+                    summary="Sesion cerrada por shutdown del bot.",
+                )
+                logger.info(f"Sesion {self._session_id[:8]}... cerrada limpiamente.")
+            except Exception:
+                pass
+
     def handle_message(self, text: str, reply):
         """Procesa un mensaje con el agente completo."""
         text_lower = text.lower().strip()
@@ -492,13 +548,7 @@ class MikaliaCoreBot:
 
     def _send_response(self, response: str, reply):
         """Envia respuesta formateada, con chunks si es necesario."""
-        # Limpiar markdown que Telegram no soporta
-        clean = response.replace("**", "<b>").replace("*", "<i>")
-        # Fix: cerrar tags que quedaron abiertos
-        if clean.count("<b>") != clean.count("</b>"):
-            clean = clean.replace("<b>", "").replace("</b>", "")
-        if clean.count("<i>") != clean.count("</i>"):
-            clean = clean.replace("<i>", "").replace("</i>", "")
+        clean = _markdown_to_telegram(response)
 
         if len(clean) > 4000:
             for i in range(0, len(clean), 4000):

@@ -297,6 +297,7 @@ def chat(core: bool):
     """* Modo chat — Habla con Mikalia por Telegram."""
     rich_console.print(BANNER)
 
+    bot = None
     try:
         cfg = load_config()
 
@@ -369,8 +370,12 @@ def chat(core: bool):
         listener.listen()
 
     except KeyboardInterrupt:
+        if core and bot:
+            bot.shutdown()
         logger.info("Chat detenido")
     except Exception as e:
+        if core and bot:
+            bot.shutdown()
         logger.error(f"Error en chat: {e}")
         sys.exit(1)
 
