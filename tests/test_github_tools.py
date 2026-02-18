@@ -15,6 +15,7 @@ from mikalia.tools.github_tools import (
     GitPushTool,
     GitBranchTool,
     GitHubPRTool,
+    MIKALIA_AUTHOR,
     _is_blocked_file,
     _run_git,
     BLOCKED_FILES,
@@ -109,6 +110,10 @@ class TestGitCommitTool:
         result = tool.execute(files="main.py", message="update", repo_path=".")
         assert result.success
         assert "abc1234" in result.output
+        # Verificar que usa identidad de Mikalia
+        commit_call = mock_git.call_args_list[1]
+        assert "--author" in commit_call[0][0]
+        assert MIKALIA_AUTHOR in commit_call[0][0]
 
     @patch("mikalia.tools.github_tools._run_git")
     def test_nothing_to_commit(self, mock_git):

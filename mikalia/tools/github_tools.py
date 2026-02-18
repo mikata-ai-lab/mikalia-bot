@@ -36,6 +36,9 @@ BLOCKED_FILES = {
 # Ruta de gh CLI en Windows (no esta en PATH)
 GH_CLI = r"C:\Program Files\GitHub CLI\gh.exe"
 
+# Identidad de Mikalia para commits
+MIKALIA_AUTHOR = "Mikalia <mikalia@mikata-ai-lab.com>"
+
 
 def _is_blocked_file(filename: str) -> bool:
     """Verifica si un archivo esta bloqueado por seguridad."""
@@ -129,8 +132,11 @@ class GitCommitTool(BaseTool):
             if result.returncode != 0 and "fatal" in (result.stderr or ""):
                 return ToolResult(success=False, error=f"git add fallo: {result.stderr}")
 
-            # git commit
-            result = _run_git(["commit", "-m", message], cwd=str(repo))
+            # git commit (con identidad de Mikalia)
+            result = _run_git(
+                ["commit", "-m", message, "--author", MIKALIA_AUTHOR],
+                cwd=str(repo),
+            )
 
             if result.returncode != 0:
                 stderr = result.stderr or result.stdout
