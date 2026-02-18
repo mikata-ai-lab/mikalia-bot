@@ -174,6 +174,26 @@ class TestSessions:
         assert session["ended_at"] is not None
         assert session["summary"] == "Test session"
 
+    def test_get_last_session_returns_recent(self, memory):
+        """Retoma la ultima sesion activa de un canal."""
+        sid = memory.create_session("telegram")
+        last = memory.get_last_session("telegram")
+        assert last is not None
+        assert last["id"] == sid
+
+    def test_get_last_session_ignores_ended(self, memory):
+        """No retoma sesiones que ya fueron cerradas."""
+        sid = memory.create_session("telegram")
+        memory.end_session(sid, summary="done")
+        last = memory.get_last_session("telegram")
+        assert last is None
+
+    def test_get_last_session_ignores_other_channel(self, memory):
+        """No retoma sesiones de otro canal."""
+        memory.create_session("cli")
+        last = memory.get_last_session("telegram")
+        assert last is None
+
 
 # ================================================================
 # Goals

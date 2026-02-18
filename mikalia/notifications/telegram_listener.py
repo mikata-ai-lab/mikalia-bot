@@ -508,7 +508,8 @@ class MikaliaCoreBot:
 
     def _cmd_brief(self, reply):
         """Genera daily brief rapido sin pasar por el agent loop."""
-        self._send_typing()
+        if self._listener:
+            self._listener.send_typing()
         try:
             from mikalia.tools.daily_brief import DailyBriefTool
             tool = DailyBriefTool(self._agent.memory)
