@@ -42,7 +42,7 @@ class MikaliaAgent:
         tool_registry: ToolRegistry (auto-crea con defaults si None).
     """
 
-    MAX_TOOL_ROUNDS = 10  # Safety: limite de rondas de tool calls
+    MAX_TOOL_ROUNDS = 20  # Safety: limite de rondas de tool calls
 
     def __init__(
         self,
