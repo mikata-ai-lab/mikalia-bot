@@ -204,7 +204,7 @@ INSERT INTO goals (project, title, description, status, priority, phase, progres
     ('mikalia-core', 'Agent Loop básico', 'CLI funcional con agent loop: input → context → Claude → response → save', 'completed', 'critical', 'F1', 100),
     ('mikalia-core', 'Memory system', 'SQLite memory con conversations, facts, sessions', 'completed', 'critical', 'F1', 100),
     ('mikalia-core', 'LLM wrapper', 'Claude API wrapper con system prompt de Mikalia + tool_use', 'completed', 'critical', 'F1', 100),
-    ('mikalia-core', 'Tool system base', 'Interfaz base + 14 tools (file, shell, git, web, memory, blog, brief)', 'completed', 'high', 'F1', 100),
+    ('mikalia-core', 'Tool system base', 'Interfaz base + 18 tools (file, shell, git, web, memory, blog, brief, github)', 'completed', 'high', 'F1', 100),
     ('mikalia-core', 'Telegram bot', 'Canal Telegram funcional bidireccional + Core mode', 'completed', 'critical', 'F2', 100),
     ('mikalia-core', 'Blog posting autónomo', 'Crear y publicar posts en Hugo + GitHub Pages via blog_post tool', 'completed', 'critical', 'F2', 100),
     ('mikalia-core', 'Daily brief', 'Resumen diario con goals, facts, stats via daily_brief tool', 'active', 'critical', 'F2', 70),

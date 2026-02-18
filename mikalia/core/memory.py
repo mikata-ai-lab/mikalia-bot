@@ -428,6 +428,34 @@ class MemoryManager:
         finally:
             conn.close()
 
+    def get_last_session(self, channel: str, max_age_hours: int = 6) -> dict | None:
+        """
+        Obtiene la ultima sesion activa de un canal (sin ended_at).
+
+        Si la sesion es mas vieja que max_age_hours, retorna None.
+
+        Args:
+            channel: Canal a buscar (telegram, cli, etc.)
+            max_age_hours: Edad maxima en horas.
+
+        Returns:
+            Dict con la sesion o None.
+        """
+        conn = self._get_connection()
+        try:
+            cursor = conn.execute(
+                "SELECT * FROM sessions "
+                "WHERE channel = ? "
+                "AND ended_at IS NULL "
+                "AND started_at >= datetime('now', 'localtime', ?) "
+                "ORDER BY started_at DESC LIMIT 1",
+                (channel, f"-{max_age_hours} hours"),
+            )
+            row = cursor.fetchone()
+            return dict(row) if row else None
+        finally:
+            conn.close()
+
     # ================================================================
     # Goals
     # ================================================================

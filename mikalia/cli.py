@@ -328,7 +328,7 @@ def chat(core: bool):
             mode_title = "Chat Core activo"
             mode_desc = (
                 "Mikalia Core v2.0 escuchando en Telegram.\n"
-                "14 tools, memoria, y aprendizaje activos.\n"
+                "18 tools, memoria, y aprendizaje activos.\n"
                 "Comandos: /brief /goals /facts /help\n\n"
                 "Presiona Ctrl+C para detener."
             )

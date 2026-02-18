@@ -388,7 +388,7 @@ class MikaliaCoreBot:
         from mikalia.core.agent import MikaliaAgent
         self._agent: MikaliaAgent = agent
         self._listener = listener
-        self._session_id: str | None = None
+        self._session_id: str | None = self._resume_session()
 
     def handle_message(self, text: str, reply):
         """Procesa un mensaje con el agente completo."""
@@ -398,7 +398,7 @@ class MikaliaCoreBot:
         if text_lower.startswith("/start"):
             reply(
                 "Hola Mikata-kun~ Soy Mikalia Core v2.0\n\n"
-                "Tengo memoria, 14 herramientas, y aprendo "
+                "Tengo memoria, 18 herramientas, y aprendo "
                 "de cada conversacion.\n\n"
                 "Comandos rapidos:\n"
                 "/brief — Resumen del dia\n"
@@ -464,6 +464,17 @@ class MikaliaCoreBot:
                 typing_thread.join(timeout=1)
             logger.error(f"Error en MikaliaCoreBot: {e}")
             reply(f"Perdon, tuve un error procesando eso: {e}")
+
+    def _resume_session(self) -> str | None:
+        """Intenta retomar la ultima sesion de Telegram."""
+        try:
+            last = self._agent.memory.get_last_session("telegram", max_age_hours=6)
+            if last:
+                logger.info(f"Retomando sesion anterior: {last['id'][:8]}...")
+                return last["id"]
+        except Exception:
+            pass
+        return None
 
     def _start_typing_loop(self, stop_event: threading.Event) -> threading.Thread | None:
         """Inicia un thread que envia typing cada 4 seg hasta que stop_event se active."""

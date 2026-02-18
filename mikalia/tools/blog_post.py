@@ -229,10 +229,11 @@ class BlogPostTool(BaseTool):
                 cwd=blog, capture_output=True, text=True, timeout=15,
             )
 
-            # git commit
+            # git commit (con identidad de Mikalia)
             commit_msg = f"Add post: {title_en}\n\nPublished by Mikalia Core"
             result = subprocess.run(
-                ["git", "commit", "-m", commit_msg],
+                ["git", "commit", "-m", commit_msg,
+                 "--author", "Mikalia <mikalia@mikata-ai-lab.com>"],
                 cwd=blog, capture_output=True, text=True, timeout=15,
             )
 
