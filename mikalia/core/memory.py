@@ -265,6 +265,16 @@ class MemoryManager:
         """
         conn = self._get_connection()
         try:
+            # Deduplicacion: no guardar facts que ya existen
+            existing = conn.execute(
+                "SELECT id FROM facts "
+                "WHERE subject = ? AND fact = ? AND is_active = 1",
+                (subject, fact),
+            ).fetchone()
+            if existing:
+                logger.info(f"Fact duplicado ignorado: {subject}: {fact[:50]}")
+                return existing["id"]
+
             cursor = conn.execute(
                 "INSERT INTO facts (category, subject, fact, source, confidence) "
                 "VALUES (?, ?, ?, ?, ?)",
@@ -453,6 +463,57 @@ class MemoryManager:
             )
             row = cursor.fetchone()
             return dict(row) if row else None
+        finally:
+            conn.close()
+
+    def get_session_stats(self, session_id: str) -> dict:
+        """
+        Obtiene estadisticas de una sesion: mensajes, tokens, herramientas.
+
+        Returns:
+            Dict con total_messages, total_tokens, user_messages, assistant_messages.
+        """
+        conn = self._get_connection()
+        try:
+            cursor = conn.execute(
+                "SELECT "
+                "  COUNT(*) as total_messages, "
+                "  COALESCE(SUM(tokens_used), 0) as total_tokens, "
+                "  SUM(CASE WHEN role = 'user' THEN 1 ELSE 0 END) as user_messages, "
+                "  SUM(CASE WHEN role = 'assistant' THEN 1 ELSE 0 END) as assistant_messages "
+                "FROM conversations WHERE session_id = ?",
+                (session_id,),
+            )
+            row = cursor.fetchone()
+            return dict(row) if row else {
+                "total_messages": 0, "total_tokens": 0,
+                "user_messages": 0, "assistant_messages": 0,
+            }
+        finally:
+            conn.close()
+
+    def get_token_usage(self, hours: int = 24) -> dict:
+        """
+        Obtiene uso total de tokens en las ultimas N horas.
+
+        Returns:
+            Dict con total_tokens, total_messages, sessions.
+        """
+        conn = self._get_connection()
+        try:
+            cursor = conn.execute(
+                "SELECT "
+                "  COALESCE(SUM(tokens_used), 0) as total_tokens, "
+                "  COUNT(*) as total_messages, "
+                "  COUNT(DISTINCT session_id) as sessions "
+                "FROM conversations "
+                "WHERE created_at >= datetime('now', 'localtime', ?)",
+                (f"-{hours} hours",),
+            )
+            row = cursor.fetchone()
+            return dict(row) if row else {
+                "total_tokens": 0, "total_messages": 0, "sessions": 0,
+            }
         finally:
             conn.close()
 

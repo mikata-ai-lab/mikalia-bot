@@ -460,6 +460,7 @@ class MikaliaCoreBot:
                 "/brief — Resumen del dia\n"
                 "/goals — Ver goals activos\n"
                 "/facts — Que se de ti\n"
+                "/stats — Uso de tokens\n"
                 "/help — Ayuda completa\n\n"
                 "O simplemente escribeme lo que necesites~"
             )
@@ -471,14 +472,16 @@ class MikaliaCoreBot:
                 "<b>Comandos rapidos:</b>\n"
                 "/brief — Resumen diario\n"
                 "/goals — Goals activos\n"
-                "/facts — Mis recuerdos\n\n"
+                "/facts — Mis recuerdos\n"
+                "/stats — Uso de tokens\n\n"
                 "<b>Puedo hacer:</b>\n"
-                "- Investigar temas en la web\n"
-                "- Crear y publicar posts en el blog\n"
-                "- Revisar archivos y repos\n"
-                "- Recordar cosas que me cuentes\n"
-                "- Ejecutar comandos del sistema\n"
-                "- Consultar y actualizar goals\n\n"
+                "• Investigar temas en la web\n"
+                "• Crear y publicar posts en el blog\n"
+                "• Revisar archivos y repos\n"
+                "• Crear branches, commits, push y PRs en GitHub\n"
+                "• Recordar cosas que me cuentes\n"
+                "• Ejecutar comandos del sistema\n"
+                "• Consultar y actualizar goals\n\n"
                 "<i>Escribeme lo que necesites, yo uso "
                 "mis herramientas automaticamente~</i>"
             )
@@ -494,6 +497,10 @@ class MikaliaCoreBot:
 
         if text_lower.startswith("/facts"):
             self._cmd_facts(reply)
+            return
+
+        if text_lower.startswith("/stats"):
+            self._cmd_stats(reply)
             return
 
         # Agent loop completo — con typing indicator continuo
@@ -608,6 +615,39 @@ class MikaliaCoreBot:
             reply("\n".join(lines))
         except Exception as e:
             reply(f"Error listando facts: {e}")
+
+    def _cmd_stats(self, reply):
+        """Muestra uso de tokens y estadisticas."""
+        try:
+            mem = self._agent.memory
+
+            # Stats de sesion actual
+            session_stats = {"total_messages": 0, "total_tokens": 0}
+            if self._session_id:
+                session_stats = mem.get_session_stats(self._session_id)
+
+            # Stats de 24h
+            daily = mem.get_token_usage(hours=24)
+
+            # Costo estimado (Sonnet 4.5: ~$3/1M input, ~$15/1M output)
+            # Estimacion conservadora: ~$8/1M tokens promedio
+            cost_est = daily["total_tokens"] * 8 / 1_000_000
+
+            lines = [
+                "<b>Estadisticas de uso:</b>\n",
+                "<b>Sesion actual:</b>",
+                f"  Mensajes: {session_stats['total_messages']}",
+                f"  Tokens: {session_stats['total_tokens']:,}",
+                "",
+                "<b>Ultimas 24h:</b>",
+                f"  Sesiones: {daily['sessions']}",
+                f"  Mensajes: {daily['total_messages']}",
+                f"  Tokens: {daily['total_tokens']:,}",
+                f"  Costo est: ~${cost_est:.3f} USD",
+            ]
+            reply("\n".join(lines))
+        except Exception as e:
+            reply(f"Error obteniendo stats: {e}")
 
     @staticmethod
     def _progress_bar(progress: int, width: int = 10) -> str:

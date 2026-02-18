@@ -147,6 +147,24 @@ class TestFacts:
         facts = memory.get_facts()
         assert len(facts) >= 10  # schema.sql tiene 14 seed facts
 
+    def test_duplicate_fact_ignored(self, memory):
+        """Facts duplicados no se insertan dos veces."""
+        id1 = memory.add_fact("technical", "python", "Python es genial")
+        id2 = memory.add_fact("technical", "python", "Python es genial")
+        assert id1 == id2
+        facts = memory.get_facts(subject="python")
+        count = sum(1 for f in facts if f["fact"] == "Python es genial")
+        assert count == 1
+
+    def test_similar_but_different_facts_both_stored(self, memory):
+        """Facts con mismo subject pero diferente contenido se guardan ambos."""
+        memory.add_fact("technical", "python", "Python es rapido")
+        memory.add_fact("technical", "python", "Python es versatil")
+        facts = memory.get_facts(subject="python")
+        texts = [f["fact"] for f in facts]
+        assert "Python es rapido" in texts
+        assert "Python es versatil" in texts
+
 
 # ================================================================
 # Sessions
@@ -193,6 +211,28 @@ class TestSessions:
         memory.create_session("cli")
         last = memory.get_last_session("telegram")
         assert last is None
+
+    def test_session_stats(self, memory):
+        """Stats de sesion cuentan mensajes y tokens."""
+        sid = memory.create_session("cli")
+        memory.add_message(sid, "cli", "user", "hola", tokens_used=0)
+        memory.add_message(sid, "cli", "assistant", "hey", tokens_used=150)
+        memory.add_message(sid, "cli", "user", "como?", tokens_used=0)
+        memory.add_message(sid, "cli", "assistant", "bien", tokens_used=200)
+        stats = memory.get_session_stats(sid)
+        assert stats["total_messages"] == 4
+        assert stats["total_tokens"] == 350
+        assert stats["user_messages"] == 2
+        assert stats["assistant_messages"] == 2
+
+    def test_token_usage_24h(self, memory):
+        """Token usage agrega tokens de las ultimas 24h."""
+        sid = memory.create_session("telegram")
+        memory.add_message(sid, "telegram", "assistant", "r1", tokens_used=500)
+        memory.add_message(sid, "telegram", "assistant", "r2", tokens_used=300)
+        usage = memory.get_token_usage(hours=24)
+        assert usage["total_tokens"] >= 800
+        assert usage["sessions"] >= 1
 
 
 # ================================================================
