@@ -11,7 +11,7 @@ import pytest
 from mikalia.core.memory import MemoryManager
 from mikalia.tools.daily_brief import DailyBriefTool
 
-SCHEMA_PATH = Path(__file__).parent.parent / "schema.sql"
+SCHEMA_PATH = Path(__file__).parent.parent / "mikalia" / "core" / "schema.sql"
 
 
 @pytest.fixture

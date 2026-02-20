@@ -17,7 +17,7 @@ from pathlib import Path
 from mikalia.core.memory import MemoryManager
 
 
-SCHEMA_PATH = Path(__file__).parent.parent / "schema.sql"
+SCHEMA_PATH = Path(__file__).parent.parent / "mikalia" / "core" / "schema.sql"
 
 
 @pytest.fixture

@@ -19,7 +19,7 @@ from mikalia.generation.client import APIResponse
 from mikalia.tools.registry import ToolRegistry
 
 
-SCHEMA_PATH = Path(__file__).parent.parent / "schema.sql"
+SCHEMA_PATH = Path(__file__).parent.parent / "mikalia" / "core" / "schema.sql"
 
 
 @pytest.fixture

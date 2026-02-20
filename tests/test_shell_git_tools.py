@@ -115,7 +115,7 @@ class TestRegistryWithAll:
     def test_with_defaults_and_memory_has_all_tools(self, tmp_path):
         from pathlib import Path
         from mikalia.core.memory import MemoryManager
-        schema = Path(__file__).parent.parent / "schema.sql"
+        schema = Path(__file__).parent.parent / "mikalia" / "core" / "schema.sql"
         db = tmp_path / "test_reg.db"
         mem = MemoryManager(db_path=str(db), schema_path=str(schema))
         registry = ToolRegistry.with_defaults(memory=mem)

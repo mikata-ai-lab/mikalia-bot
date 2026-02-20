@@ -1,28 +1,14 @@
 """
-personality.py — Carga y gestiona la personalidad de Mikalia.
+personality.py — Carga la personalidad de Mikalia desde MIKALIA.md.
 
-La personalidad de Mikalia vive en un solo archivo: MIKALIA.md.
-Este módulo se encarga de:
-1. Encontrar y leer MIKALIA.md
-2. Parsearlo para extraer secciones específicas si se necesitan
-3. Mantenerlo en memoria para pasarlo como system prompt a Claude
-
-¿Por qué un archivo .md separado y no hardcoded en Python?
-    - Portabilidad: MIKALIA.md funciona con cualquier LLM (Claude, GPT, local)
-    - Transparencia: Cualquiera puede leer quién es Mikalia
-    - Editable: Mikata-kun puede ajustar la personalidad sin tocar código
-    - Versionable: Git trackea cada cambio en la personalidad
-
-¿Por qué cargar una sola vez y mantener en memoria?
-    - El system prompt se envía en CADA llamada a la API
-    - Leer el archivo cada vez sería ineficiente
-    - Si MIKALIA.md cambia mientras el bot corre, se puede recargar
+LEGACY: Usado por comandos F1-F3 (post, interactive, agent, chat).
+Los comandos Core (chat --core, core) usan identity.yaml via ContextBuilder.
+Cuando se migren todos los comandos a Core, este modulo se puede eliminar.
 
 Uso:
     from mikalia.personality import load_personality
     personality = load_personality()
     print(personality.system_prompt)  # Contenido completo de MIKALIA.md
-    print(personality.name)           # "Mikalia"
 """
 
 from __future__ import annotations

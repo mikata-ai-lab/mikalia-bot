@@ -16,7 +16,7 @@ from mikalia.tools.memory_tools import (
     ListGoalsTool,
 )
 
-SCHEMA_PATH = Path(__file__).parent.parent / "schema.sql"
+SCHEMA_PATH = Path(__file__).parent.parent / "mikalia" / "core" / "schema.sql"
 
 
 @pytest.fixture

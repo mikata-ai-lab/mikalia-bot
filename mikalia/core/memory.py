@@ -66,18 +66,16 @@ class MemoryManager:
         if schema_path:
             return Path(schema_path)
 
-        # Buscar hacia arriba desde el paquete mikalia
-        current = Path(__file__).parent.parent.parent
-        candidate = current / "schema.sql"
+        # Primero: junto a este archivo (mikalia/core/schema.sql)
+        local = Path(__file__).parent / "schema.sql"
+        if local.exists():
+            return local
+
+        # Fallback: raiz del proyecto
+        root = Path(__file__).parent.parent.parent
+        candidate = root / "schema.sql"
         if candidate.exists():
             return candidate
-
-        # Buscar desde cwd
-        cwd = Path.cwd()
-        for parent in [cwd] + list(cwd.parents):
-            candidate = parent / "schema.sql"
-            if candidate.exists():
-                return candidate
 
         raise FileNotFoundError(
             "No se encontro schema.sql. Especifica la ruta manualmente."

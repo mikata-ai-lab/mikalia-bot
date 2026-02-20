@@ -43,3 +43,6 @@ Thumbs.db
 
 # --- Data y memoria (info sensible) ---
 data/
+
+# --- Logs ---
+logs/
