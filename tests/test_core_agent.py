@@ -226,3 +226,77 @@ class TestToolCalls:
 
         # 1 initial + 3 tool rounds = 4 calls
         assert mock_client.chat_with_tools.call_count == 4
+
+
+# ================================================================
+# Conversation compression
+# ================================================================
+
+class TestConversationCompression:
+    def test_no_compression_below_threshold(self, memory, mock_client, mock_config):
+        """No comprime si hay menos mensajes que el threshold."""
+        mock_client.chat_with_tools.return_value = make_response("OK")
+        agent = MikaliaAgent(
+            config=mock_config, memory=memory,
+            client=mock_client, tool_registry=ToolRegistry(),
+        )
+
+        messages = [
+            {"role": "user" if i % 2 == 0 else "assistant", "content": f"msg {i}"}
+            for i in range(20)
+        ]
+        result = agent._maybe_compress(messages)
+        assert len(result) == 20
+
+    def test_compression_reduces_messages(self, memory, mock_client, mock_config):
+        """Comprime cuando hay mas mensajes que el threshold."""
+        mock_client.generate.return_value = make_response(
+            "User discussed testing features with Mikalia."
+        )
+        agent = MikaliaAgent(
+            config=mock_config, memory=memory,
+            client=mock_client, tool_registry=ToolRegistry(),
+        )
+        agent.COMPRESSION_THRESHOLD = 20
+
+        messages = [
+            {"role": "user" if i % 2 == 0 else "assistant", "content": f"msg {i}"}
+            for i in range(30)
+        ]
+        result = agent._maybe_compress(messages)
+        assert len(result) < 30
+        assert "[Previous conversation summary]" in result[0]["content"]
+
+    def test_compression_preserves_recent(self, memory, mock_client, mock_config):
+        """Los mensajes recientes se preservan intactos."""
+        mock_client.generate.return_value = make_response("Summary text")
+        agent = MikaliaAgent(
+            config=mock_config, memory=memory,
+            client=mock_client, tool_registry=ToolRegistry(),
+        )
+        agent.COMPRESSION_THRESHOLD = 15
+        agent.MESSAGES_TO_KEEP = 5
+
+        messages = [
+            {"role": "user" if i % 2 == 0 else "assistant", "content": f"msg-{i}"}
+            for i in range(20)
+        ]
+        result = agent._maybe_compress(messages)
+        assert result[-1]["content"] == "msg-19"
+        assert result[-5]["content"] == "msg-15"
+
+    def test_compression_handles_api_error(self, memory, mock_client, mock_config):
+        """Si la API falla, retorna mensajes sin comprimir."""
+        mock_client.generate.side_effect = Exception("API down")
+        agent = MikaliaAgent(
+            config=mock_config, memory=memory,
+            client=mock_client, tool_registry=ToolRegistry(),
+        )
+        agent.COMPRESSION_THRESHOLD = 10
+
+        messages = [
+            {"role": "user" if i % 2 == 0 else "assistant", "content": f"msg {i}"}
+            for i in range(20)
+        ]
+        result = agent._maybe_compress(messages)
+        assert len(result) == 20

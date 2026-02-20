@@ -87,7 +87,8 @@ class AddFactTool(BaseTool):
             "Learn and remember a new fact. Use this when Mikata-kun tells you "
             "something important about himself, his projects, preferences, or "
             "any information worth remembering for future conversations. "
-            "Categories: personal, project, preference, technical, health."
+            "Categories: personal, project, preference, technical, health, lesson. "
+            "Use 'lesson' when you learn from a correction or mistake."
         )
 
     def get_parameters(self) -> dict[str, Any]:
@@ -96,8 +97,8 @@ class AddFactTool(BaseTool):
             "properties": {
                 "category": {
                     "type": "string",
-                    "description": "Category: personal, project, preference, technical, health",
-                    "enum": ["personal", "project", "preference", "technical", "health"],
+                    "description": "Category: personal, project, preference, technical, health, lesson",
+                    "enum": ["personal", "project", "preference", "technical", "health", "lesson"],
                 },
                 "subject": {
                     "type": "string",

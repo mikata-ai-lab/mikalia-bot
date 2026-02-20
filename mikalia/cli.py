@@ -326,10 +326,19 @@ def chat(core: bool):
             bot = MikaliaCoreBot(agent, listener=listener)
             listener._on_message = bot.handle_message
 
+            # Iniciar scheduler
+            from mikalia.core.scheduler import MikaliaScheduler
+            scheduler = MikaliaScheduler(
+                memory=agent.memory,
+                send_fn=listener.send,
+                check_interval=60,
+            )
+            scheduler.start()
+
             mode_title = "Chat Core activo"
             mode_desc = (
                 "Mikalia Core v2.0 escuchando en Telegram.\n"
-                "18 tools, memoria, y aprendizaje activos.\n"
+                "18 tools, memoria, scheduler, y aprendizaje activos.\n"
                 "Comandos: /brief /goals /facts /help\n\n"
                 "Presiona Ctrl+C para detener."
             )
@@ -370,12 +379,18 @@ def chat(core: bool):
         listener.listen()
 
     except KeyboardInterrupt:
-        if core and bot:
-            bot.shutdown()
+        if core:
+            if 'scheduler' in locals():
+                scheduler.stop()
+            if bot:
+                bot.shutdown()
         logger.info("Chat detenido")
     except Exception as e:
-        if core and bot:
-            bot.shutdown()
+        if core:
+            if 'scheduler' in locals():
+                scheduler.stop()
+            if bot:
+                bot.shutdown()
         logger.error(f"Error en chat: {e}")
         sys.exit(1)
 

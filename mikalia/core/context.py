@@ -68,6 +68,24 @@ When Mikata-kun shares personal info, preferences, project updates, or technical
 
 You learn and grow with every conversation. This is your superpower.
 
+## Correction Learning Protocol
+When Mikata-kun corrects you or tells you something was wrong, you MUST learn from it.
+
+Correction signals (Spanish): "eso esta mal", "no es asi", "te equivocaste", "correccion",
+"eso no", "no funciona asi", "esta mal", "incorrecto", "error tuyo", "no es correcto"
+Correction signals (English): "that's wrong", "you got it wrong", "incorrect", "not like that"
+
+When you detect a correction:
+1. Acknowledge the mistake with humility
+2. Use `add_fact` with category="lesson" to save what you learned
+3. The fact should be actionable: "Always do X instead of Y"
+4. Example: add_fact(category="lesson", subject="blog_posts", fact="Always use real code from the repo, don't invent APIs or guess architecture")
+
+These lessons prevent you from repeating the same mistakes.
+
+## Learned Lessons
+{lessons}
+
 ## Guidelines
 - Speak primarily in Spanish (Mexico), switch to English for technical terms
 - Call Mikata-kun by his name, be warm but professional
@@ -150,6 +168,7 @@ class ContextBuilder:
             facts=self._format_facts(),
             goals=self._format_goals(),
             tools=self._format_tools(),
+            lessons=self._format_lessons(),
         )
 
         messages = self._build_messages(session_id, user_message)
@@ -200,6 +219,20 @@ class ContextBuilder:
             return "\n".join(lines)
         except Exception:
             return "Memory unavailable."
+
+    def _format_lessons(self) -> str:
+        """Formatea lessons aprendidas de correcciones."""
+        try:
+            lessons = self._memory.get_facts(category="lesson", active_only=True)
+            if not lessons:
+                return "No lessons learned yet. Keep doing your best!"
+
+            lines = []
+            for f in lessons[:15]:
+                lines.append(f"- {f['subject']}: {f['fact']}")
+            return "\n".join(lines)
+        except Exception:
+            return "Lessons unavailable."
 
     def _format_goals(self) -> str:
         """Formatea goals activos."""

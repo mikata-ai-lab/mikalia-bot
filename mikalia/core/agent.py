@@ -43,6 +43,8 @@ class MikaliaAgent:
     """
 
     MAX_TOOL_ROUNDS = 20  # Safety: limite de rondas de tool calls
+    COMPRESSION_THRESHOLD = 30  # Mensajes antes de comprimir
+    MESSAGES_TO_KEEP = 10  # Mensajes recientes a preservar
 
     def __init__(
         self,
@@ -147,6 +149,9 @@ class MikaliaAgent:
                 "content": tool_results,
             })
 
+            # Compress if conversation is getting long
+            context.messages = self._maybe_compress(context.messages)
+
             # Continue conversation
             response = self._client.chat_with_tools(
                 messages=context.messages,
@@ -193,6 +198,82 @@ class MikaliaAgent:
             logger.warning(f"Tool {name}: Error — {result.error}")
 
         return result
+
+    def _maybe_compress(self, messages: list[dict]) -> list[dict]:
+        """
+        Comprime mensajes viejos en un resumen si la lista es muy larga.
+
+        Mantiene los ultimos MESSAGES_TO_KEEP mensajes intactos y reemplaza
+        los anteriores con un resumen generado por Claude.
+
+        Args:
+            messages: Lista actual de mensajes.
+
+        Returns:
+            Lista de mensajes (posiblemente comprimida).
+        """
+        if len(messages) <= self.COMPRESSION_THRESHOLD:
+            return messages
+
+        logger.info(
+            f"Comprimiendo conversacion: {len(messages)} mensajes "
+            f"(threshold: {self.COMPRESSION_THRESHOLD})"
+        )
+
+        old_messages = messages[:-self.MESSAGES_TO_KEEP]
+        recent_messages = messages[-self.MESSAGES_TO_KEEP:]
+
+        # Construir texto para resumir
+        old_text_parts = []
+        for msg in old_messages:
+            role = msg.get("role", "unknown")
+            content = msg.get("content", "")
+            if isinstance(content, str):
+                old_text_parts.append(f"{role}: {content[:200]}")
+            elif isinstance(content, list):
+                for item in content:
+                    if isinstance(item, dict):
+                        text = item.get("content", item.get("text", ""))
+                        old_text_parts.append(f"{role}: {str(text)[:200]}")
+
+        old_text = "\n".join(old_text_parts)
+
+        try:
+            summary_response = self._client.generate(
+                user_prompt=(
+                    "Summarize this conversation context in 2-3 sentences. "
+                    "Focus on: what was discussed, what tools were used, "
+                    "what decisions were made, and any important results.\n\n"
+                    f"{old_text}"
+                ),
+                system_override=(
+                    "You are a conversation summarizer. Be concise and factual. "
+                    "Output only the summary, nothing else."
+                ),
+                temperature=0.3,
+                max_tokens=300,
+            )
+            summary = summary_response.content
+        except Exception as e:
+            logger.warning(f"Error comprimiendo: {e}. Continuando sin comprimir.")
+            return messages
+
+        # Construir lista comprimida con roles alternantes validos
+        compressed: list[dict] = [
+            {"role": "user", "content": f"[Previous conversation summary]: {summary}"},
+            {"role": "assistant", "content": "Understood, I have the context. Continuing."},
+        ]
+
+        # Asegurar alternancia valida con los mensajes recientes
+        if recent_messages and recent_messages[0].get("role") == "assistant":
+            compressed.append({"role": "user", "content": "[continuation]"})
+
+        compressed.extend(recent_messages)
+
+        logger.info(
+            f"Compresion exitosa: {len(messages)} -> {len(compressed)} mensajes"
+        )
+        return compressed
 
     @property
     def session_id(self) -> str | None:

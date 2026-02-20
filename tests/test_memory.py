@@ -274,3 +274,20 @@ class TestGoals:
         assert len(updates) >= 1
         assert updates[0]["note"] == "Primer avance"
         assert updates[0]["new_value"] == "25"
+
+
+class TestLessonFacts:
+    def test_add_lesson_fact(self, memory):
+        """Lessons se guardan con category='lesson'."""
+        fact_id = memory.add_fact(
+            "lesson", "blog_posts", "Always use real code from the repo"
+        )
+        facts = memory.get_facts(category="lesson")
+        assert len(facts) >= 1
+        assert any(f["fact"] == "Always use real code from the repo" for f in facts)
+
+    def test_lesson_facts_separate_from_regular(self, memory):
+        """Lessons no aparecen en filtros de otras categorias."""
+        memory.add_fact("lesson", "coding", "Never skip tests")
+        technical = memory.get_facts(category="technical")
+        assert not any(f["fact"] == "Never skip tests" for f in technical)

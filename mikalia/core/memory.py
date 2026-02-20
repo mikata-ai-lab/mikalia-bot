@@ -633,3 +633,54 @@ class MemoryManager:
             return [dict(row) for row in cursor.fetchall()]
         finally:
             conn.close()
+
+    # ================================================================
+    # Scheduled Jobs
+    # ================================================================
+
+    def get_scheduled_jobs(self, enabled_only: bool = True) -> list[dict]:
+        """
+        Obtiene jobs programados.
+
+        Args:
+            enabled_only: Solo jobs habilitados (default True).
+
+        Returns:
+            Lista de jobs.
+        """
+        conn = self._get_connection()
+        try:
+            condition = "WHERE is_enabled = 1" if enabled_only else ""
+            cursor = conn.execute(
+                f"SELECT id, name, description, cron_expression, "
+                f"action, channel, is_enabled, last_run_at, "
+                f"next_run_at, created_at "
+                f"FROM scheduled_jobs {condition} "
+                f"ORDER BY name",
+            )
+            return [dict(row) for row in cursor.fetchall()]
+        finally:
+            conn.close()
+
+    def update_job_last_run(
+        self, job_id: int, next_run_at: str | None = None
+    ) -> None:
+        """
+        Actualiza last_run_at de un job al momento actual.
+
+        Args:
+            job_id: ID del job.
+            next_run_at: Proxima ejecucion calculada (ISO format).
+        """
+        conn = self._get_connection()
+        try:
+            conn.execute(
+                "UPDATE scheduled_jobs SET "
+                "last_run_at = datetime('now', 'localtime'), "
+                "next_run_at = ? "
+                "WHERE id = ?",
+                (next_run_at, job_id),
+            )
+            conn.commit()
+        finally:
+            conn.close()
