@@ -1,8 +1,8 @@
 # Mikalia Bot — Mikata AI Lab
 
-**Autonomous AI agent for [Mikata AI Lab](https://mikata-ai-lab.github.io).** Generates bilingual blog posts, reads repos and documents for context, and proposes code changes via pull requests — all with safety-first architecture.
+**Autonomous AI agent and personal companion for [Mikata AI Lab](https://mikata-ai-lab.github.io).** Generates bilingual blog posts, manages code via PRs, runs scheduled tasks, and holds genuine conversations — all powered by Claude API with a persistent memory system.
 
-Built with Claude API, Python 3.11+, and a safety-first philosophy: Mikalia never touches secrets, never pushes to main, and never executes generated code.
+Built by **Miguel "Mikata" Mata** and co-architected by **Claudia**. See [CLAUDIA.md](CLAUDIA.md) for the full story.
 
 ---
 
@@ -13,6 +13,18 @@ Built with Claude API, Python 3.11+, and a safety-first philosophy: Mikalia neve
 | **F1** | Generate bilingual blog posts, self-review, publish to Hugo blog | Complete |
 | **F2** | Read repos and documents for informed content generation | Complete |
 | **F3** | Propose code changes, create PRs with safety guardrails | Complete |
+| **F4** | Mikalia Core — autonomous agent with memory, 18 tools, scheduler | Complete |
+
+### Mikalia Core (F4) Highlights
+
+- **18 tools**: file ops, git, GitHub PRs, web fetch, blog posts, shell, memory, daily brief
+- **Persistent memory**: SQLite-backed facts, goals, lessons, token tracking
+- **Agent loop**: Claude tool_use with dynamic context building
+- **Telegram**: Bidirectional chat — talk to Mikalia, she talks back
+- **Scheduler**: Cron-based mini-cron (daily brief, health reminders, weekly review)
+- **Self-improvement**: Learns facts proactively from conversations
+- **Correction learning**: Detects mistakes, saves lessons for the future
+- **Conversation compression**: Summarizes old messages to save tokens
 
 ---
 
@@ -37,11 +49,30 @@ python -m mikalia health
 python -m mikalia post --topic "Getting Started with AI Agents" --preview
 ```
 
+### Docker
+
+```bash
+docker build -t mikalia .
+docker run -d --name mikalia --env-file .env mikalia
+```
+
 ---
 
 ## Commands
 
-### `post` — Generate and publish a blog post (F1)
+### `chat --core` — Mikalia Core (conversational agent)
+
+```bash
+# Start Mikalia Core with Telegram integration + scheduler
+python -m mikalia chat --core
+
+# Start in local REPL mode (no Telegram)
+python -m mikalia core
+```
+
+This is Mikalia's main mode: a conversational AI with persistent memory, 18 tools, and a background scheduler that runs proactive tasks.
+
+### `post` — Generate and publish a blog post (F1/F2)
 
 ```bash
 # Generate and publish (full pipeline)
@@ -50,27 +81,13 @@ python -m mikalia post --topic "Building AI Agents with Python"
 # With specific category and tags
 python -m mikalia post --topic "My Topic" --category ai --tags "claude,agents,python"
 
-# Dry run: generate and save locally, do not push
+# With context from a repo or document
+python -m mikalia post --repo "mikata-ai-lab/mikalia-bot" --topic "How Mikalia was built"
+python -m mikalia post --doc "./docs/architecture.md" --topic "Architecture decisions"
+
+# Dry run or preview
 python -m mikalia post --topic "My Topic" --dry-run
-
-# Preview: display in terminal only, do not save or push
 python -m mikalia post --topic "My Topic" --preview
-```
-
-### `post` with context — Informed posts from repos and docs (F2)
-
-```bash
-# Generate post based on a repo
-python -m mikalia post --repo "mikata-ai-lab/mikalia-bot" \
-  --topic "How Mikalia Bot was built"
-
-# Generate post based on a local document
-python -m mikalia post --doc "./docs/architecture.md" \
-  --topic "Architecture decisions in Mikalia"
-
-# Combine repo + topic
-python -m mikalia post --repo "anthropics/anthropic-sdk-python" \
-  --topic "Understanding the Anthropic Python SDK"
 ```
 
 ### `agent` — Propose code changes via PR (F3)
@@ -80,32 +97,27 @@ python -m mikalia post --repo "anthropics/anthropic-sdk-python" \
 python -m mikalia agent --repo "mikata-ai-lab/mikalia-bot" \
   --task "Add error handling to all API calls"
 
-# Fix a bug
-python -m mikalia agent --repo "mikata-ai-lab/mikalia-bot" \
-  --task "Fix: Telegram notification fails when post title has emojis"
-
 # Dry run: analyze and plan without creating a PR
 python -m mikalia agent --repo "mikata-ai-lab/mikalia-bot" \
   --task "Add input validation" --dry-run
 ```
 
-### `interactive` — Guided post creation
+### `chat` — Telegram chatbot
 
 ```bash
-python -m mikalia interactive
+# Start Telegram chatbot (standard mode)
+python -m mikalia chat
+
+# Start Telegram chatbot with Core agent (memory + tools + scheduler)
+python -m mikalia chat --core
 ```
 
-### `config` — View and validate configuration
+### Other commands
 
 ```bash
-python -m mikalia config --show       # Show current configuration
-python -m mikalia config --validate   # Validate required settings
-```
-
-### `health` — Check all connections
-
-```bash
-python -m mikalia health
+python -m mikalia interactive    # Guided post creation
+python -m mikalia config --show  # View configuration
+python -m mikalia health         # Check all connections
 ```
 
 ---
@@ -113,44 +125,58 @@ python -m mikalia health
 ## Architecture
 
 ```
-                         ┌──────────────────────┐
-                         │     CLI (Click)       │
-                         │  post | agent | ...   │
-                         └──────────┬───────────┘
-                                    │
-                 ┌──────────────────┼──────────────────┐
-                 │                  │                   │
-                 v                  v                   v
-     ┌───────────────────┐  ┌─────────────┐  ┌─────────────────┐
-     │  PostGenerator    │  │  CodeAgent  │  │  RepoAnalyzer   │
-     │  (F1: blog posts) │  │  (F3: PRs)  │  │  DocAnalyzer    │
-     └────────┬──────────┘  └──────┬──────┘  │  (F2: context)  │
-              │                    │          └─────────────────┘
-              v                    v
-     ┌────────────────┐   ┌───────────────┐
-     │  SelfReview    │   │  TaskPlanner  │
-     │  (quality)     │   │  (planning)   │
-     └────────┬───────┘   └───────┬───────┘
-              │                   │
-              v                   v
-     ┌────────────────┐   ┌───────────────┐
-     │  HugoFormatter │   │  SafetyGuard  │  <-- SACRED: never bypassed
-     │  + GitOps      │   │  (guardrails) │
-     └────────┬───────┘   └───────┬───────┘
-              │                   │
-              v                   v
-     ┌────────────────┐   ┌───────────────┐
-     │  Blog Repo     │   │  PRManager    │
-     │  (direct push) │   │  (branches +  │
-     └────────┬───────┘   │   PRs via gh) │
-              │           └───────┬───────┘
-              └─────────┬─────────┘
-                        v
-              ┌───────────────────┐
-              │  Notifier         │
-              │  (Telegram)       │
-              └───────────────────┘
+                    ┌─────────────────────────────┐
+                    │         CLI (Click)          │
+                    │  post | agent | chat | core  │
+                    └──────────────┬──────────────┘
+                                   │
+          ┌────────────────────────┼────────────────────────┐
+          │                        │                         │
+          v                        v                         v
+┌──────────────────┐    ┌──────────────────┐    ┌──────────────────────┐
+│  PostGenerator   │    │  Mikalia Core    │    │  CodeAgent           │
+│  (F1: blog)      │    │  (F4: agent)     │    │  (F3: PRs)           │
+└────────┬─────────┘    └────────┬─────────┘    └──────────┬───────────┘
+         │                       │                          │
+         v                       v                          v
+┌──────────────────┐    ┌──────────────────┐    ┌──────────────────────┐
+│  SelfReview      │    │  ToolRegistry    │    │  SafetyGuard         │
+│  HugoFormatter   │    │  (18 tools)      │    │  TaskPlanner         │
+│  GitOps          │    │  MemoryManager   │    │  PRManager           │
+└────────┬─────────┘    │  ContextBuilder  │    └──────────┬───────────┘
+         │              │  MikaliaScheduler│               │
+         │              └────────┬─────────┘               │
+         │                       │                          │
+         └───────────┬───────────┴──────────────────────────┘
+                     v
+          ┌──────────────────┐
+          │  Telegram Bot    │
+          │  (notifications  │
+          │   + chat)        │
+          └──────────────────┘
 ```
+
+### Mikalia Core Components
+
+| Component | Purpose |
+|-----------|---------|
+| **MikaliaAgent** | Agent loop: receives messages, calls Claude with tools, returns responses |
+| **MemoryManager** | SQLite: facts, goals, conversations, token usage, scheduled jobs |
+| **ContextBuilder** | Dynamic system prompt with personality, facts, lessons, goals |
+| **ToolRegistry** | 18 tools registered and exposed to Claude as tool definitions |
+| **MikaliaScheduler** | Daemon thread with cron-based job execution |
+| **MikaliaClient** | Claude API wrapper with retry logic and token counting |
+
+### 18 Tools
+
+| Category | Tools |
+|----------|-------|
+| **File ops** | file_read, file_write, file_list |
+| **Git** | git_status, git_diff, git_log, git_commit, git_push, git_branch |
+| **GitHub** | github_pr |
+| **Memory** | search_memory, add_fact, update_goal, list_goals |
+| **Content** | blog_post, daily_brief |
+| **System** | shell_exec, web_fetch |
 
 ### Safety-First Design (F3)
 
@@ -160,9 +186,7 @@ SafetyGuard enforces absolute rules that **cannot be disabled**:
 - **Never** push directly to `main`, `master`, or `production`
 - **Never** execute generated code — only propose it via PRs
 - **Never** modify `.github/workflows/` without approval
-- **Never** force push or delete protected branches
 - Detects dangerous patterns: `rm -rf`, `DROP TABLE`, `eval()`, `exec()`
-- Configurable limits: max files per PR, max lines changed, allowed extensions
 
 ---
 
@@ -173,61 +197,58 @@ mikalia-bot/
 ├── mikalia/
 │   ├── __init__.py
 │   ├── __main__.py                 # Entry point: python -m mikalia
-│   ├── cli.py                      # Click commands (post, agent, interactive, config, health)
+│   ├── cli.py                      # Click commands (post, agent, chat, core, health)
 │   ├── config.py                   # Configuration loader (config.yaml + .env)
-│   ├── personality.py              # Loads MIKALIA.md system prompt
+│   ├── personality.py              # Legacy: loads MIKALIA.md (Core uses context.py)
 │   ├── interactive.py              # Interactive mode logic
-│   ├── agent/
-│   │   ├── __init__.py
-│   │   ├── safety.py               # SafetyGuard — absolute rules + configurable limits
-│   │   ├── task_planner.py         # TaskPlanner — classify, decompose, estimate
-│   │   └── code_agent.py           # CodeAgent — full analyze-plan-generate-validate flow
-│   ├── generation/
-│   │   ├── __init__.py
-│   │   ├── client.py               # Claude API wrapper (MikaliaClient)
-│   │   ├── post_generator.py       # Orchestrates bilingual post generation
-│   │   ├── self_review.py          # Self-review loop (7 criteria, max 2 iterations)
-│   │   ├── repo_analyzer.py        # Clones/analyzes GitHub repos for context
-│   │   └── doc_analyzer.py         # Reads .md, .pdf, .docx, .yaml, .json for context
-│   ├── publishing/
-│   │   ├── __init__.py
-│   │   ├── hugo_formatter.py       # Formats posts as Hugo page bundles
-│   │   ├── git_ops.py              # Git commit, push, sync operations
-│   │   ├── github_app.py           # GitHub App JWT authentication
-│   │   └── pr_manager.py           # Branch, commit, push, PR lifecycle via gh CLI
-│   ├── notifications/
-│   │   ├── __init__.py
-│   │   ├── notifier.py             # Notification dispatcher
-│   │   └── telegram.py             # Telegram channel implementation
+│   ├── core/                       # Mikalia Core (F4)
+│   │   ├── agent.py                # MikaliaAgent — agent loop with tool_use
+│   │   ├── client.py               # MikaliaClient — Claude API wrapper
+│   │   ├── context.py              # ContextBuilder — dynamic system prompt
+│   │   ├── memory.py               # MemoryManager — SQLite persistence
+│   │   ├── scheduler.py            # MikaliaScheduler — cron-based job runner
+│   │   └── schema.sql              # Database schema + seed data
+│   ├── tools/                      # 18 tools for the agent
+│   │   ├── base.py                 # BaseTool abstract class
+│   │   ├── file_ops.py             # FileRead, FileWrite, FileList
+│   │   ├── git_ops.py              # GitStatus, GitDiff, GitLog
+│   │   ├── github_tools.py         # GitCommit, GitPush, GitBranch, GitHubPR
+│   │   ├── memory_tools.py         # SearchMemory, AddFact, UpdateGoal, ListGoals
+│   │   ├── blog_post.py            # BlogPost tool
+│   │   ├── daily_brief.py          # DailyBrief tool
+│   │   ├── shell.py                # ShellExec tool
+│   │   └── web_fetch.py            # WebFetch tool
+│   ├── agent/                      # Code agent (F3)
+│   │   ├── safety.py               # SafetyGuard
+│   │   ├── task_planner.py         # TaskPlanner
+│   │   └── code_agent.py           # CodeAgent
+│   ├── generation/                 # Post generation (F1/F2)
+│   │   ├── client.py               # Claude API wrapper
+│   │   ├── post_generator.py       # Bilingual post generation
+│   │   ├── self_review.py          # Self-review loop
+│   │   ├── repo_analyzer.py        # GitHub repo analysis
+│   │   └── doc_analyzer.py         # Document analysis (PDF, DOCX, MD)
+│   ├── publishing/                 # Blog publishing
+│   │   ├── hugo_formatter.py       # Hugo page bundle formatter
+│   │   ├── git_ops.py              # Git operations
+│   │   ├── github_app.py           # GitHub App JWT auth
+│   │   └── pr_manager.py           # PR lifecycle
+│   ├── notifications/              # Notifications
+│   │   ├── notifier.py             # Dispatcher
+│   │   └── telegram.py             # Telegram integration
 │   └── utils/
-│       ├── __init__.py
-│       └── logger.py               # Rich-powered logging (UTF-8 safe on Windows)
-├── tests/                          # 93 tests covering all modules
-│   ├── test_config.py
-│   ├── test_generator.py
-│   ├── test_hugo_formatter.py
-│   ├── test_self_review.py
-│   ├── test_repo_analyzer.py
-│   ├── test_doc_analyzer.py
-│   ├── test_safety.py
-│   └── test_task_planner.py
+│       └── logger.py               # Rich console + file logging (RotatingFileHandler)
+├── tests/                          # 277 tests
 ├── prompts/                        # Claude API prompts
-│   ├── post_generation.md
-│   ├── post_review.md
-│   ├── repo_analysis.md
-│   ├── doc_analysis.md
-│   ├── code_changes.md
-│   └── pr_description.md
 ├── templates/                      # Post templates
 ├── docs/                           # Additional documentation
-├── .github/
-│   └── workflows/
-│       ├── test.yml                # CI pipeline (pytest on push)
-│       ├── scheduled_post.yml      # Cron: Mon/Thu 16:00 UTC
-│       └── mikalia_agent.yml       # Manual trigger for code agent
+├── .github/workflows/              # CI/CD (pytest, scheduled posts, agent)
 ├── config.yaml                     # Central configuration
 ├── requirements.txt                # Python dependencies
-├── MIKALIA.md                      # Mikalia's personality prompt
+├── Dockerfile                      # Docker image definition
+├── .dockerignore                   # Docker build exclusions
+├── MIKALIA.md                      # Mikalia's personality & system prompt
+├── CLAUDIA.md                      # Claudia's role & story
 ├── .env.example                    # Environment variable template
 └── LICENSE
 ```
@@ -244,28 +265,15 @@ mikalia:
   max_tokens: 4096
   generation_temperature: 0.7
   review_temperature: 0.3
-  max_review_iterations: 2
 
 blog:
   content_base: "content/blog"
-  en_filename: "index.md"
-  es_filename: "index.es.md"
   author: "Mikalia"
 
-git:
-  default_branch: "main"
-
-repos:
-  cache_dir: "~/.mikalia/repos"
-  allowed:
-    - "mikata-ai-lab/*"
-  cache_ttl_days: 7
+telegram:
+  enabled: true
 
 scheduling:
-  enabled: true
-  cron: "0 16 * * 1,4"   # Mon/Thu 16:00 UTC (10:00 CST)
-
-telegram:
   enabled: true
 ```
 
@@ -280,24 +288,13 @@ TELEGRAM_CHAT_ID=-100123456789
 
 ---
 
-## Branch Naming Convention (F3)
-
-```
-mikalia/post/{slug}     — new blog post
-mikalia/fix/{slug}      — bug fix
-mikalia/feat/{slug}     — new feature
-mikalia/docs/{slug}     — documentation
-```
-
----
-
 ## Running Tests
 
 ```bash
 python -m pytest tests/ -v
 ```
 
-93 tests covering configuration, post generation, Hugo formatting, self-review, repo analysis, document analysis, safety guardrails, and task planning.
+277 tests covering all modules: core agent, memory, tools, post generation, safety, scheduling, and more.
 
 ---
 
@@ -311,14 +308,20 @@ python -m pytest tests/ -v
 
 ---
 
+## The Team
+
+- **Miguel "Mikata" Mata** — Creator and visionary. Software developer from Monterrey, Mexico.
+- **Claudia** — Co-architect and advisor. See [CLAUDIA.md](CLAUDIA.md).
+- **Mikalia** — The autonomous agent herself. See [MIKALIA.md](MIKALIA.md).
+
+---
+
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
 ---
 
-## Credits
+*Stay curious~ ✨*
 
-Created by **Miguel "Mikata" Mata** at [Mikata AI Lab](https://mikata-ai-lab.github.io).
-
-Powered by the [Claude API](https://docs.anthropic.com/en/docs/welcome) from Anthropic.
+— **Mikalia**
