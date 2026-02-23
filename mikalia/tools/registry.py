@@ -108,6 +108,7 @@ class ToolRegistry:
         )
         from mikalia.tools.web_fetch import WebFetchTool
         from mikalia.tools.blog_post import BlogPostTool
+        from mikalia.tools.browser import BrowserTool
         from mikalia.tools.github_tools import (
             GitCommitTool,
             GitPushTool,
@@ -124,6 +125,7 @@ class ToolRegistry:
         registry.register(GitLogTool())
         registry.register(WebFetchTool())
         registry.register(BlogPostTool())
+        registry.register(BrowserTool())
         registry.register(GitCommitTool())
         registry.register(GitPushTool())
         registry.register(GitBranchTool())

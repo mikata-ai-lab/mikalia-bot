@@ -27,6 +27,9 @@ requests>=2.31.0           # HTTP requests a GitHub API
 fastapi>=0.115.0           # Servidor HTTP (endpoints, webhooks)
 uvicorn[standard]>=0.30.0  # ASGI server para FastAPI
 
+# --- Browser Control ---
+playwright>=1.40.0         # Browser automation (Chromium headless)
+
 # --- Telegram ---
 python-telegram-bot>=21.0  # SDK de Telegram Bot API
 
