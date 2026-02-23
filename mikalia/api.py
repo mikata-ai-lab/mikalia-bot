@@ -46,6 +46,7 @@ def create_app(
     memory: MemoryManager | None = None,
     db_path: str | None = None,
     whatsapp_listener: Any = None,
+    twilio_listener: Any = None,
 ) -> FastAPI:
     """
     Crea la app FastAPI de Mikalia.
@@ -76,6 +77,7 @@ def create_app(
 
     app.state.memory = memory
     app.state.whatsapp_listener = whatsapp_listener
+    app.state.twilio_listener = twilio_listener
 
     _register_routes(app)
 
@@ -309,6 +311,44 @@ def _register_routes(app: FastAPI) -> None:
             return result
         except Exception as e:
             logger.error(f"Error en webhook WhatsApp: {e}")
+            return JSONResponse(
+                content={"error": str(e)},
+                status_code=400,
+            )
+
+    # ============================================================
+    # Twilio WhatsApp Webhook
+    # ============================================================
+
+    @app.post("/webhook/twilio")
+    async def webhook_twilio(request: Request):
+        """
+        Recibe mensajes de WhatsApp via Twilio.
+
+        Twilio envia POST form-encoded (no JSON).
+        Campos: From, To, Body, MessageSid, NumMedia, etc.
+        """
+        listener = app.state.twilio_listener
+        if listener is None:
+            return JSONResponse(
+                content={"error": "Twilio not configured"},
+                status_code=503,
+            )
+
+        try:
+            form = await request.form()
+            form_data = dict(form)
+            result = listener.handle_webhook(form_data)
+            logger.info(f"Twilio webhook: {result}")
+
+            # Twilio espera 200 OK con TwiML vacio
+            # (respondemos via API, no via TwiML)
+            return PlainTextResponse(
+                content="<Response></Response>",
+                media_type="application/xml",
+            )
+        except Exception as e:
+            logger.error(f"Error en webhook Twilio: {e}")
             return JSONResponse(
                 content={"error": str(e)},
                 status_code=400,
