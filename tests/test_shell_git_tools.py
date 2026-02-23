@@ -125,4 +125,6 @@ class TestRegistryWithAll:
         assert "update_goal" in tools
         assert "list_goals" in tools
         assert "daily_brief" in tools
-        assert len(tools) == 18
+        assert "create_skill" in tools
+        assert "list_skills" in tools
+        assert len(tools) == 20

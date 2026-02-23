@@ -145,4 +145,17 @@ class ToolRegistry:
             registry.register(ListGoalsTool(memory))
             registry.register(DailyBriefTool(memory))
 
+            # Skill tools (auto-creacion de herramientas)
+            from mikalia.core.skill_creator import SkillCreator
+            from mikalia.tools.skill_tools import (
+                CreateSkillTool,
+                ListSkillsTool,
+            )
+            creator = SkillCreator(memory, registry)
+            registry.register(CreateSkillTool(creator))
+            registry.register(ListSkillsTool(creator))
+
+            # Cargar skills custom existentes
+            creator.load_custom_skills()
+
         return registry
