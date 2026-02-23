@@ -113,7 +113,8 @@ class TestRegistryWithAll:
         assert "browser" in tools
         assert "text_to_speech" in tools
         assert "speech_to_text" in tools
-        assert len(tools) == 16
+        assert "image_generation" in tools
+        assert len(tools) == 17
 
     def test_with_defaults_and_memory_has_all_tools(self, tmp_path):
         from pathlib import Path
@@ -133,4 +134,5 @@ class TestRegistryWithAll:
         assert "browser" in tools
         assert "text_to_speech" in tools
         assert "speech_to_text" in tools
-        assert len(tools) == 23
+        assert "image_generation" in tools
+        assert len(tools) == 24

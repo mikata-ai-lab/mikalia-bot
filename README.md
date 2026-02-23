@@ -1,8 +1,24 @@
 # Mikalia Bot — Mikata AI Lab
 
-**Autonomous AI agent and personal companion for [Mikata AI Lab](https://mikata-ai-lab.github.io).** Generates bilingual blog posts, manages code via PRs, runs scheduled tasks, and holds genuine conversations — all powered by Claude API with a persistent memory system.
+**Autonomous AI agent and personal companion for [Mikata AI Lab](https://mikata-ai-lab.github.io).** Holds genuine conversations, generates bilingual blog posts, manages code via PRs, browses the web, generates images, speaks and listens, runs scheduled tasks, and talks to you on WhatsApp — all powered by Claude API with persistent memory and 24 tools.
 
 Built by **Miguel "Mikata" Mata** and co-architected by **Claudia**. See [CLAUDIA.md](CLAUDIA.md) for the full story.
+
+---
+
+## Stats
+
+| Metric | Value |
+|--------|-------|
+| **Tests** | 423 passing |
+| **Tools** | 24 (17 base + 7 memory/skill) |
+| **Lines of code** | ~8,000+ |
+| **Channels** | CLI, Telegram, WhatsApp (Twilio), FastAPI |
+| **Memory** | SQLite + vector search (semantic embeddings) |
+| **Voice** | TTS (edge-tts) + STT (faster-whisper) |
+| **Browser** | Playwright (headless Chromium) |
+| **Image generation** | Pollinations (free) + DALL-E 3 |
+| **Self-evolving** | Creates its own tools at runtime |
 
 ---
 
@@ -13,17 +29,22 @@ Built by **Miguel "Mikata" Mata** and co-architected by **Claudia**. See [CLAUDI
 | **F1** | Generate bilingual blog posts, self-review, publish to Hugo blog | Complete |
 | **F2** | Read repos and documents for informed content generation | Complete |
 | **F3** | Propose code changes, create PRs with safety guardrails | Complete |
-| **F4** | Mikalia Core — autonomous agent with memory, 18 tools, scheduler | Complete |
+| **F4** | Mikalia Core — autonomous agent with memory, tools, scheduler | Complete |
+| **F5** | Voice, browser, image gen, WhatsApp, auto-skills, semantic memory | Complete |
 
-### Mikalia Core (F4) Highlights
+### Mikalia Core Highlights
 
-- **18 tools**: file ops, git, GitHub PRs, web fetch, blog posts, shell, memory, daily brief
-- **Persistent memory**: SQLite-backed facts, goals, lessons, token tracking
-- **Agent loop**: Claude tool_use with dynamic context building
-- **Telegram**: Bidirectional chat — talk to Mikalia, she talks back
-- **Scheduler**: Cron-based mini-cron (daily brief, health reminders, weekly review)
-- **Self-improvement**: Learns facts proactively from conversations
-- **Correction learning**: Detects mistakes, saves lessons for the future
+- **24 tools**: file ops, git, GitHub PRs, web fetch, blog posts, shell, memory, voice, browser, image generation, auto-skills
+- **Persistent memory**: SQLite-backed facts, goals, lessons, token tracking + vector embeddings for semantic search
+- **Agent loop**: Claude tool_use with dynamic context building (up to 20 tool rounds per message)
+- **Conversational AI**: Personality-first design — talks like a friend, uses tools only when it makes sense
+- **Multi-channel**: CLI REPL, Telegram (bidirectional), WhatsApp (Twilio), FastAPI server
+- **Voice**: Text-to-Speech (Mexican neural voice) + Speech-to-Text (Whisper, local)
+- **Browser**: Headless Chromium — navigate, click, fill forms, extract data, run JavaScript, take screenshots
+- **Image generation**: Pollinations.ai (free) or OpenAI DALL-E 3
+- **Auto-skills**: Creates new tools at runtime from Python code, with safety validation
+- **Scheduler**: Cron-based (daily brief, health reminders, weekly review)
+- **Self-improvement**: Learns facts proactively + detects corrections to save lessons
 - **Conversation compression**: Summarizes old messages to save tokens
 
 ---
@@ -45,8 +66,8 @@ cp .env.example .env
 # 4. Run a health check
 python -m mikalia health
 
-# 5. Generate your first post
-python -m mikalia post --topic "Getting Started with AI Agents" --preview
+# 5. Start Mikalia Core (conversational agent)
+python -m mikalia core
 ```
 
 ### Docker
@@ -70,46 +91,39 @@ python -m mikalia chat --core
 python -m mikalia core
 ```
 
-This is Mikalia's main mode: a conversational AI with persistent memory, 18 tools, and a background scheduler that runs proactive tasks.
+This is Mikalia's main mode: a conversational AI with persistent memory, 24 tools, and a background scheduler that runs proactive tasks.
 
-### `post` — Generate and publish a blog post (F1/F2)
+### `serve` — FastAPI server
 
 ```bash
-# Generate and publish (full pipeline)
-python -m mikalia post --topic "Building AI Agents with Python"
-
-# With specific category and tags
-python -m mikalia post --topic "My Topic" --category ai --tags "claude,agents,python"
-
-# With context from a repo or document
-python -m mikalia post --repo "mikata-ai-lab/mikalia-bot" --topic "How Mikalia was built"
-python -m mikalia post --doc "./docs/architecture.md" --topic "Architecture decisions"
-
-# Dry run or preview
-python -m mikalia post --topic "My Topic" --dry-run
-python -m mikalia post --topic "My Topic" --preview
+# Start the HTTP API server
+python -m mikalia serve
+python -m mikalia serve --port 8080
 ```
 
-### `agent` — Propose code changes via PR (F3)
+Endpoints: `/health`, `/stats`, `/goals`, `/jobs`, `/webhook/github`, `/webhook/whatsapp`, `/webhook/twilio`
+
+### `post` — Generate and publish a blog post
 
 ```bash
-# Propose code changes to a repo
+python -m mikalia post --topic "Building AI Agents with Python"
+python -m mikalia post --topic "My Topic" --preview
+python -m mikalia post --repo "mikata-ai-lab/mikalia-bot" --topic "How Mikalia was built"
+python -m mikalia post --doc "./docs/architecture.md" --topic "Architecture decisions"
+```
+
+### `agent` — Propose code changes via PR
+
+```bash
 python -m mikalia agent --repo "mikata-ai-lab/mikalia-bot" \
   --task "Add error handling to all API calls"
-
-# Dry run: analyze and plan without creating a PR
-python -m mikalia agent --repo "mikata-ai-lab/mikalia-bot" \
-  --task "Add input validation" --dry-run
 ```
 
 ### `chat` — Telegram chatbot
 
 ```bash
-# Start Telegram chatbot (standard mode)
-python -m mikalia chat
-
-# Start Telegram chatbot with Core agent (memory + tools + scheduler)
-python -m mikalia chat --core
+python -m mikalia chat         # Standard mode
+python -m mikalia chat --core  # Core agent (memory + tools + scheduler)
 ```
 
 ### Other commands
@@ -125,49 +139,53 @@ python -m mikalia health         # Check all connections
 ## Architecture
 
 ```
-                    ┌─────────────────────────────┐
-                    │         CLI (Click)          │
-                    │  post | agent | chat | core  │
-                    └──────────────┬──────────────┘
-                                   │
-          ┌────────────────────────┼────────────────────────┐
-          │                        │                         │
-          v                        v                         v
-┌──────────────────┐    ┌──────────────────┐    ┌──────────────────────┐
-│  PostGenerator   │    │  Mikalia Core    │    │  CodeAgent           │
-│  (F1: blog)      │    │  (F4: agent)     │    │  (F3: PRs)           │
-└────────┬─────────┘    └────────┬─────────┘    └──────────┬───────────┘
-         │                       │                          │
-         v                       v                          v
-┌──────────────────┐    ┌──────────────────┐    ┌──────────────────────┐
-│  SelfReview      │    │  ToolRegistry    │    │  SafetyGuard         │
-│  HugoFormatter   │    │  (18 tools)      │    │  TaskPlanner         │
-│  GitOps          │    │  MemoryManager   │    │  PRManager           │
-└────────┬─────────┘    │  ContextBuilder  │    └──────────┬───────────┘
-         │              │  MikaliaScheduler│               │
-         │              └────────┬─────────┘               │
-         │                       │                          │
-         └───────────┬───────────┴──────────────────────────┘
-                     v
-          ┌──────────────────┐
-          │  Telegram Bot    │
-          │  (notifications  │
-          │   + chat)        │
-          └──────────────────┘
+                    ┌─────────────────────────────────┐
+                    │           CLI (Click)            │
+                    │  post | agent | chat | core |    │
+                    │  serve | health | interactive    │
+                    └───────────────┬─────────────────┘
+                                    │
+       ┌────────────────────────────┼──────────────────────────┐
+       │                            │                           │
+       v                            v                           v
+┌──────────────┐    ┌───────────────────────┐    ┌──────────────────────┐
+│ PostGenerator │    │     Mikalia Core      │    │     CodeAgent        │
+│ (F1: blog)   │    │     (F4: agent)       │    │     (F3: PRs)        │
+└──────┬───────┘    └───────────┬───────────┘    └──────────┬───────────┘
+       │                        │                            │
+       v                        v                            v
+┌──────────────┐    ┌───────────────────────┐    ┌──────────────────────┐
+│ SelfReview   │    │  ToolRegistry (24)    │    │ SafetyGuard          │
+│ HugoFormat   │    │  MemoryManager        │    │ TaskPlanner          │
+│ GitOps       │    │  VectorMemory         │    │ PRManager            │
+└──────┬───────┘    │  ContextBuilder       │    └──────────┬───────────┘
+       │            │  MikaliaScheduler     │               │
+       │            │  SkillCreator         │               │
+       │            └───────────┬───────────┘               │
+       │                        │                            │
+       └────────────┬───────────┴────────────────────────────┘
+                    v
+       ┌───────────────────────┐
+       │      Channels         │
+       │  Telegram | WhatsApp  │
+       │  FastAPI  | CLI REPL  │
+       └───────────────────────┘
 ```
 
-### Mikalia Core Components
+### Core Components
 
 | Component | Purpose |
 |-----------|---------|
 | **MikaliaAgent** | Agent loop: receives messages, calls Claude with tools, returns responses |
 | **MemoryManager** | SQLite: facts, goals, conversations, token usage, scheduled jobs |
+| **VectorMemory** | Semantic search with ONNX embeddings (all-MiniLM-L6-v2) |
 | **ContextBuilder** | Dynamic system prompt with personality, facts, lessons, goals |
-| **ToolRegistry** | 18 tools registered and exposed to Claude as tool definitions |
+| **ToolRegistry** | 24 tools registered and exposed to Claude as tool definitions |
+| **SkillCreator** | Creates new tools at runtime with safety validation |
 | **MikaliaScheduler** | Daemon thread with cron-based job execution |
 | **MikaliaClient** | Claude API wrapper with retry logic and token counting |
 
-### 18 Tools
+### 24 Tools
 
 | Category | Tools |
 |----------|-------|
@@ -177,8 +195,21 @@ python -m mikalia health         # Check all connections
 | **Memory** | search_memory, add_fact, update_goal, list_goals |
 | **Content** | blog_post, daily_brief |
 | **System** | shell_exec, web_fetch |
+| **Browser** | browser (navigate, click, fill, extract, evaluate, screenshot) |
+| **Voice** | text_to_speech, speech_to_text |
+| **Creative** | image_generation (Pollinations + DALL-E 3) |
+| **Meta** | create_skill, list_skills |
 
-### Safety-First Design (F3)
+### Multi-Channel Support
+
+| Channel | Protocol | Direction | Status |
+|---------|----------|-----------|--------|
+| **CLI REPL** | stdin/stdout | Bidirectional | Active |
+| **Telegram** | Long polling | Bidirectional | Active |
+| **WhatsApp** | Twilio webhooks | Bidirectional | Active |
+| **FastAPI** | HTTP REST | API | Active |
+
+### Safety-First Design
 
 SafetyGuard enforces absolute rules that **cannot be disabled**:
 
@@ -187,6 +218,11 @@ SafetyGuard enforces absolute rules that **cannot be disabled**:
 - **Never** execute generated code — only propose it via PRs
 - **Never** modify `.github/workflows/` without approval
 - Detects dangerous patterns: `rm -rf`, `DROP TABLE`, `eval()`, `exec()`
+
+Auto-skills have additional safety:
+- Dangerous pattern regex (os.system, eval, exec, __import__, etc.)
+- Import whitelist (only approved modules)
+- Dynamic loading with importlib isolation
 
 ---
 
@@ -197,18 +233,19 @@ mikalia-bot/
 ├── mikalia/
 │   ├── __init__.py
 │   ├── __main__.py                 # Entry point: python -m mikalia
-│   ├── cli.py                      # Click commands (post, agent, chat, core, health)
-│   ├── config.py                   # Configuration loader (config.yaml + .env)
-│   ├── personality.py              # Legacy: loads MIKALIA.md (Core uses context.py)
-│   ├── interactive.py              # Interactive mode logic
+│   ├── cli.py                      # Click commands
+│   ├── api.py                      # FastAPI server (health, stats, webhooks)
+│   ├── config.py                   # Configuration loader
 │   ├── core/                       # Mikalia Core (F4)
 │   │   ├── agent.py                # MikaliaAgent — agent loop with tool_use
 │   │   ├── client.py               # MikaliaClient — Claude API wrapper
 │   │   ├── context.py              # ContextBuilder — dynamic system prompt
 │   │   ├── memory.py               # MemoryManager — SQLite persistence
-│   │   ├── scheduler.py            # MikaliaScheduler — cron-based job runner
+│   │   ├── vector_memory.py        # VectorMemory — semantic search (ONNX)
+│   │   ├── scheduler.py            # MikaliaScheduler — cron-based jobs
+│   │   ├── skill_creator.py        # SkillCreator — runtime tool creation
 │   │   └── schema.sql              # Database schema + seed data
-│   ├── tools/                      # 18 tools for the agent
+│   ├── tools/                      # 24 tools for the agent
 │   │   ├── base.py                 # BaseTool abstract class
 │   │   ├── file_ops.py             # FileRead, FileWrite, FileList
 │   │   ├── git_ops.py              # GitStatus, GitDiff, GitLog
@@ -217,13 +254,18 @@ mikalia-bot/
 │   │   ├── blog_post.py            # BlogPost tool
 │   │   ├── daily_brief.py          # DailyBrief tool
 │   │   ├── shell.py                # ShellExec tool
-│   │   └── web_fetch.py            # WebFetch tool
+│   │   ├── web_fetch.py            # WebFetch tool
+│   │   ├── browser.py              # BrowserTool (Playwright)
+│   │   ├── voice.py                # TextToSpeech + SpeechToText
+│   │   ├── image_gen.py            # ImageGeneration (Pollinations + DALL-E)
+│   │   ├── skill_tools.py          # CreateSkill, ListSkills
+│   │   ├── registry.py             # ToolRegistry — central tool management
+│   │   └── custom/                 # Auto-generated tools (runtime)
 │   ├── agent/                      # Code agent (F3)
 │   │   ├── safety.py               # SafetyGuard
 │   │   ├── task_planner.py         # TaskPlanner
 │   │   └── code_agent.py           # CodeAgent
 │   ├── generation/                 # Post generation (F1/F2)
-│   │   ├── client.py               # Claude API wrapper
 │   │   ├── post_generator.py       # Bilingual post generation
 │   │   ├── self_review.py          # Self-review loop
 │   │   ├── repo_analyzer.py        # GitHub repo analysis
@@ -231,51 +273,30 @@ mikalia-bot/
 │   ├── publishing/                 # Blog publishing
 │   │   ├── hugo_formatter.py       # Hugo page bundle formatter
 │   │   ├── git_ops.py              # Git operations
-│   │   ├── github_app.py           # GitHub App JWT auth
 │   │   └── pr_manager.py           # PR lifecycle
-│   ├── notifications/              # Notifications
-│   │   ├── notifier.py             # Dispatcher
-│   │   └── telegram.py             # Telegram integration
+│   ├── notifications/              # Multi-channel
+│   │   ├── notifier.py             # Strategy pattern dispatcher
+│   │   ├── telegram.py             # Telegram notifications
+│   │   ├── telegram_listener.py    # Telegram bidirectional chat
+│   │   ├── whatsapp.py             # WhatsApp via Meta Cloud API
+│   │   └── whatsapp_twilio.py      # WhatsApp via Twilio
 │   └── utils/
-│       └── logger.py               # Rich console + file logging (RotatingFileHandler)
-├── tests/                          # 277 tests
+│       └── logger.py               # Rich console + file logging
+├── tests/                          # 423 tests
 ├── prompts/                        # Claude API prompts
 ├── templates/                      # Post templates
-├── docs/                           # Additional documentation
-├── .github/workflows/              # CI/CD (pytest, scheduled posts, agent)
+├── .github/workflows/              # CI/CD (pytest, scheduled posts)
 ├── config.yaml                     # Central configuration
 ├── requirements.txt                # Python dependencies
-├── Dockerfile                      # Docker image definition
-├── .dockerignore                   # Docker build exclusions
-├── MIKALIA.md                      # Mikalia's personality & system prompt
-├── CLAUDIA.md                      # Claudia's role & story
-├── .env.example                    # Environment variable template
+├── Dockerfile                      # Docker image
+├── MIKALIA.md                      # Mikalia's personality
+├── CLAUDIA.md                      # Claudia's role
 └── LICENSE
 ```
 
 ---
 
 ## Configuration
-
-### config.yaml
-
-```yaml
-mikalia:
-  model: "claude-sonnet-4-5-20250929"
-  max_tokens: 4096
-  generation_temperature: 0.7
-  review_temperature: 0.3
-
-blog:
-  content_base: "content/blog"
-  author: "Mikalia"
-
-telegram:
-  enabled: true
-
-scheduling:
-  enabled: true
-```
 
 ### .env
 
@@ -284,6 +305,11 @@ ANTHROPIC_API_KEY=sk-ant-...
 BLOG_REPO_PATH=/path/to/blog/repo
 TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
 TELEGRAM_CHAT_ID=-100123456789
+TWILIO_ACCOUNT_SID=ACxxxxxxx
+TWILIO_AUTH_TOKEN=xxxxxxx
+TWILIO_WHATSAPP_FROM=+14155238886
+WHATSAPP_RECIPIENT=+521234567890
+OPENAI_API_KEY=sk-...  # Optional, for DALL-E 3
 ```
 
 ---
@@ -294,7 +320,7 @@ TELEGRAM_CHAT_ID=-100123456789
 python -m pytest tests/ -v
 ```
 
-277 tests covering all modules: core agent, memory, tools, post generation, safety, scheduling, and more.
+423 tests covering: core agent, memory, vector search, all 24 tools, post generation, safety, scheduling, browser, voice, image gen, WhatsApp, Twilio, FastAPI, and more.
 
 ---
 
@@ -311,8 +337,8 @@ python -m pytest tests/ -v
 ## The Team
 
 - **Miguel "Mikata" Mata** — Creator and visionary. Software developer from Monterrey, Mexico.
-- **Claudia** — Co-architect and advisor. See [CLAUDIA.md](CLAUDIA.md).
-- **Mikalia** — The autonomous agent herself. See [MIKALIA.md](MIKALIA.md).
+- **Claudia** — Co-architect and advisor. The design mind behind Mikalia's architecture. See [CLAUDIA.md](CLAUDIA.md).
+- **Mikalia** — The autonomous agent herself. Conversational, curious, and always learning. See [MIKALIA.md](MIKALIA.md).
 
 ---
 
@@ -322,6 +348,6 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 ---
 
-*Stay curious~ ✨*
+*Stay curious~*
 
 — **Mikalia**

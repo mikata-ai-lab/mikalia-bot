@@ -110,6 +110,7 @@ class ToolRegistry:
         from mikalia.tools.blog_post import BlogPostTool
         from mikalia.tools.browser import BrowserTool
         from mikalia.tools.voice import TextToSpeechTool, SpeechToTextTool
+        from mikalia.tools.image_gen import ImageGenerationTool
         from mikalia.tools.github_tools import (
             GitCommitTool,
             GitPushTool,
@@ -133,6 +134,7 @@ class ToolRegistry:
         registry.register(GitHubPRTool())
         registry.register(TextToSpeechTool())
         registry.register(SpeechToTextTool())
+        registry.register(ImageGenerationTool())
 
         # Memory tools (requieren MemoryManager)
         if memory is not None:

@@ -86,7 +86,9 @@ class TestVectorMemoryMocked:
         # Mockear _embed para generar vectores deterministicos
         def fake_embed(text: str) -> np.ndarray:
             """Genera vector basado en hash del texto (reproducible)."""
-            np.random.seed(hash(text) % 2**31)
+            import hashlib
+            h = int(hashlib.md5(text.encode()).hexdigest(), 16) % 2**31
+            np.random.seed(h)
             vec = np.random.randn(384).astype(np.float32)
             vec = vec / np.linalg.norm(vec)
             return vec
