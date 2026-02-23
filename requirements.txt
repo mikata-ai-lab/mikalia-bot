@@ -30,6 +30,10 @@ uvicorn[standard]>=0.30.0  # ASGI server para FastAPI
 # --- Browser Control ---
 playwright>=1.40.0         # Browser automation (Chromium headless)
 
+# --- Voice ---
+edge-tts>=6.1.0            # Text-to-Speech (Microsoft Neural, gratis)
+faster-whisper>=1.0.0      # Speech-to-Text (Whisper ONNX, local)
+
 # --- Telegram ---
 python-telegram-bot>=21.0  # SDK de Telegram Bot API
 

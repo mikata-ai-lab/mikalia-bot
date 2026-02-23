@@ -111,7 +111,9 @@ class TestRegistryWithAll:
         assert "git_branch" in tools
         assert "github_pr" in tools
         assert "browser" in tools
-        assert len(tools) == 14
+        assert "text_to_speech" in tools
+        assert "speech_to_text" in tools
+        assert len(tools) == 16
 
     def test_with_defaults_and_memory_has_all_tools(self, tmp_path):
         from pathlib import Path
@@ -129,4 +131,6 @@ class TestRegistryWithAll:
         assert "create_skill" in tools
         assert "list_skills" in tools
         assert "browser" in tools
-        assert len(tools) == 21
+        assert "text_to_speech" in tools
+        assert "speech_to_text" in tools
+        assert len(tools) == 23

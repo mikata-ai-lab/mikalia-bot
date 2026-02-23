@@ -109,6 +109,7 @@ class ToolRegistry:
         from mikalia.tools.web_fetch import WebFetchTool
         from mikalia.tools.blog_post import BlogPostTool
         from mikalia.tools.browser import BrowserTool
+        from mikalia.tools.voice import TextToSpeechTool, SpeechToTextTool
         from mikalia.tools.github_tools import (
             GitCommitTool,
             GitPushTool,
@@ -130,6 +131,8 @@ class ToolRegistry:
         registry.register(GitPushTool())
         registry.register(GitBranchTool())
         registry.register(GitHubPRTool())
+        registry.register(TextToSpeechTool())
+        registry.register(SpeechToTextTool())
 
         # Memory tools (requieren MemoryManager)
         if memory is not None:
