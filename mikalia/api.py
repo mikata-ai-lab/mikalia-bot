@@ -1,0 +1,249 @@
+"""
+api.py — Servidor FastAPI de Mikalia.
+
+Expone endpoints HTTP para monitoreo, stats y webhooks futuros.
+Es el "sistema nervioso" que permite a Mikalia escuchar del mundo.
+
+Endpoints:
+    GET  /             — Info basica de Mikalia
+    GET  /health       — Health check para monitoreo VPS
+    GET  /stats        — Token usage, conversations, facts
+    GET  /goals        — Goals activos con progreso
+    GET  /jobs         — Scheduled jobs y estado
+    POST /webhook/github — Webhook para eventos de GitHub (futuro)
+
+Uso:
+    python -m mikalia serve
+    python -m mikalia serve --port 8080
+"""
+
+from __future__ import annotations
+
+import os
+import time
+from datetime import datetime
+from pathlib import Path
+
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+
+from mikalia.core.memory import MemoryManager
+from mikalia.utils.logger import get_logger
+
+logger = get_logger("mikalia.api")
+
+# ================================================================
+# App factory
+# ================================================================
+
+_start_time: float = 0.0
+
+
+def create_app(
+    memory: MemoryManager | None = None,
+    db_path: str | None = None,
+) -> FastAPI:
+    """
+    Crea la app FastAPI de Mikalia.
+
+    Args:
+        memory: MemoryManager existente (reutiliza conexion).
+        db_path: Ruta a la DB si no se pasa memory.
+
+    Returns:
+        FastAPI app lista para servir.
+    """
+    global _start_time
+    _start_time = time.time()
+
+    app = FastAPI(
+        title="Mikalia API",
+        description="Sistema nervioso de Mikalia — monitoreo, stats y webhooks",
+        version="1.0.0",
+    )
+
+    # Resolver memory
+    if memory is None:
+        schema_path = Path(__file__).parent / "core" / "schema.sql"
+        resolved_db = db_path or os.environ.get(
+            "MIKALIA_DB_PATH", "data/mikalia.db"
+        )
+        memory = MemoryManager(resolved_db, str(schema_path))
+
+    app.state.memory = memory
+
+    _register_routes(app)
+
+    return app
+
+
+# ================================================================
+# Routes
+# ================================================================
+
+
+def _register_routes(app: FastAPI) -> None:
+    """Registra todos los endpoints."""
+
+    @app.get("/")
+    async def root():
+        """Info basica de Mikalia."""
+        return {
+            "name": "Mikalia",
+            "version": "2.0",
+            "status": "alive",
+            "uptime_seconds": int(time.time() - _start_time),
+            "message": "Stay curious~ ✨",
+        }
+
+    @app.get("/health")
+    async def health():
+        """
+        Health check para monitoreo en VPS.
+
+        Verifica: DB conectada, uptime, timestamp.
+        Retorna 200 si todo OK, 503 si algo falla.
+        """
+        checks = {
+            "database": False,
+            "uptime_seconds": int(time.time() - _start_time),
+            "timestamp": datetime.now().isoformat(),
+        }
+
+        try:
+            memory: MemoryManager = app.state.memory
+            # Verificar DB haciendo una query simple
+            facts = memory.get_facts(active_only=True)
+            checks["database"] = True
+            checks["facts_count"] = len(facts)
+        except Exception as e:
+            checks["database_error"] = str(e)
+
+        all_ok = checks["database"]
+        status_code = 200 if all_ok else 503
+
+        return JSONResponse(
+            content={
+                "status": "healthy" if all_ok else "degraded",
+                "checks": checks,
+            },
+            status_code=status_code,
+        )
+
+    @app.get("/stats")
+    async def stats():
+        """
+        Estadisticas de uso de Mikalia.
+
+        Token usage (24h y 7d), conversaciones, facts, goals.
+        """
+        memory: MemoryManager = app.state.memory
+
+        usage_24h = memory.get_token_usage(hours=24)
+        usage_7d = memory.get_token_usage(hours=168)
+
+        try:
+            facts = memory.get_facts(active_only=True)
+            facts_count = len(facts)
+        except Exception:
+            facts_count = 0
+
+        try:
+            goals = memory.get_active_goals()
+            goals_active = len(goals)
+        except Exception:
+            goals_active = 0
+
+        try:
+            lessons = memory.get_facts(category="lesson", active_only=True)
+            lessons_count = len(lessons)
+        except Exception:
+            lessons_count = 0
+
+        return {
+            "token_usage": {
+                "last_24h": {
+                    "tokens": usage_24h["total_tokens"],
+                    "messages": usage_24h["total_messages"],
+                    "sessions": usage_24h["sessions"],
+                },
+                "last_7d": {
+                    "tokens": usage_7d["total_tokens"],
+                    "messages": usage_7d["total_messages"],
+                    "sessions": usage_7d["sessions"],
+                },
+            },
+            "memory": {
+                "facts": facts_count,
+                "lessons": lessons_count,
+                "goals_active": goals_active,
+            },
+            "uptime_seconds": int(time.time() - _start_time),
+        }
+
+    @app.get("/goals")
+    async def goals():
+        """Lista goals activos con progreso."""
+        memory: MemoryManager = app.state.memory
+
+        active_goals = memory.get_active_goals()
+        return {
+            "goals": [
+                {
+                    "project": g["project"],
+                    "title": g["title"],
+                    "status": g["status"],
+                    "priority": g["priority"],
+                    "progress": g["progress"],
+                }
+                for g in active_goals
+            ],
+            "total": len(active_goals),
+        }
+
+    @app.get("/jobs")
+    async def jobs():
+        """Lista scheduled jobs y su estado."""
+        memory: MemoryManager = app.state.memory
+
+        all_jobs = memory.get_scheduled_jobs(enabled_only=False)
+        return {
+            "jobs": [
+                {
+                    "name": j["name"],
+                    "description": j["description"],
+                    "cron": j["cron_expression"],
+                    "enabled": bool(j["is_enabled"]),
+                    "last_run": j["last_run_at"],
+                    "next_run": j["next_run_at"],
+                }
+                for j in all_jobs
+            ],
+            "total": len(all_jobs),
+        }
+
+    @app.post("/webhook/github")
+    async def webhook_github(request: Request):
+        """
+        Webhook para eventos de GitHub.
+
+        Placeholder — sera expandido para recibir eventos
+        de PRs, pushes, CI failures, etc.
+        """
+        try:
+            payload = await request.json()
+            event_type = request.headers.get("X-GitHub-Event", "unknown")
+
+            logger.info(f"GitHub webhook: {event_type}")
+
+            # TODO: Procesar eventos y notificar por Telegram
+            return {
+                "received": True,
+                "event": event_type,
+                "message": "Webhook received. Processing not yet implemented.",
+            }
+        except Exception as e:
+            return JSONResponse(
+                content={"error": str(e)},
+                status_code=400,
+            )

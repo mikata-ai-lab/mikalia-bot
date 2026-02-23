@@ -584,6 +584,45 @@ def health():
         )
 
 
+@main.command()
+@click.option(
+    "--host", "-h",
+    default="0.0.0.0",
+    help="Host para el servidor (default: 0.0.0.0)",
+)
+@click.option(
+    "--port", "-p",
+    default=8000,
+    type=int,
+    help="Puerto para el servidor (default: 8000)",
+)
+def serve(host: str, port: int):
+    """🌐 Inicia el servidor API de Mikalia (FastAPI + uvicorn)."""
+    rich_console.print(BANNER)
+    logger.mikalia(f"Iniciando servidor API en {host}:{port}...")
+
+    try:
+        import uvicorn
+        from mikalia.api import create_app
+
+        app = create_app()
+        logger.success(f"Mikalia API lista en http://{host}:{port}")
+        logger.info("Endpoints: /health, /stats, /goals, /jobs, /webhook/github")
+
+        uvicorn.run(app, host=host, port=port, log_level="info")
+    except ImportError:
+        logger.error(
+            "FastAPI/uvicorn no instalados. "
+            "Ejecuta: pip install fastapi uvicorn[standard]"
+        )
+        sys.exit(1)
+    except KeyboardInterrupt:
+        logger.mikalia("Servidor detenido. Hasta luego~")
+    except Exception as e:
+        logger.error(f"Error en servidor: {e}")
+        sys.exit(1)
+
+
 # ============================================================
 # Funciones auxiliares (privadas)
 # ============================================================
