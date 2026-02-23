@@ -1,7 +1,7 @@
 """
 api.py — Servidor FastAPI de Mikalia.
 
-Expone endpoints HTTP para monitoreo, stats y webhooks futuros.
+Expone endpoints HTTP para monitoreo, stats y webhooks.
 Es el "sistema nervioso" que permite a Mikalia escuchar del mundo.
 
 Endpoints:
@@ -10,7 +10,9 @@ Endpoints:
     GET  /stats        — Token usage, conversations, facts
     GET  /goals        — Goals activos con progreso
     GET  /jobs         — Scheduled jobs y estado
-    POST /webhook/github — Webhook para eventos de GitHub (futuro)
+    POST /webhook/github    — Webhook para eventos de GitHub
+    GET  /webhook/whatsapp  — Verificacion de webhook (Meta)
+    POST /webhook/whatsapp  — Mensajes entrantes de WhatsApp
 
 Uso:
     python -m mikalia serve
@@ -23,9 +25,10 @@ import os
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, Query, Request
+from fastapi.responses import JSONResponse, PlainTextResponse
 
 from mikalia.core.memory import MemoryManager
 from mikalia.utils.logger import get_logger
@@ -42,6 +45,7 @@ _start_time: float = 0.0
 def create_app(
     memory: MemoryManager | None = None,
     db_path: str | None = None,
+    whatsapp_listener: Any = None,
 ) -> FastAPI:
     """
     Crea la app FastAPI de Mikalia.
@@ -71,6 +75,7 @@ def create_app(
         memory = MemoryManager(resolved_db, str(schema_path))
 
     app.state.memory = memory
+    app.state.whatsapp_listener = whatsapp_listener
 
     _register_routes(app)
 
@@ -243,6 +248,67 @@ def _register_routes(app: FastAPI) -> None:
                 "message": "Webhook received. Processing not yet implemented.",
             }
         except Exception as e:
+            return JSONResponse(
+                content={"error": str(e)},
+                status_code=400,
+            )
+
+    # ============================================================
+    # WhatsApp Webhook
+    # ============================================================
+
+    @app.get("/webhook/whatsapp")
+    async def webhook_whatsapp_verify(
+        request: Request,
+    ):
+        """
+        Verificacion del webhook de WhatsApp (Meta).
+
+        Meta envia un GET con hub.mode, hub.verify_token y hub.challenge.
+        Debemos responder con el challenge si el token es correcto.
+        """
+        mode = request.query_params.get("hub.mode", "")
+        token = request.query_params.get("hub.verify_token", "")
+        challenge = request.query_params.get("hub.challenge", "")
+
+        listener = app.state.whatsapp_listener
+        if listener is None:
+            return JSONResponse(
+                content={"error": "WhatsApp not configured"},
+                status_code=503,
+            )
+
+        result = listener.handle_webhook_verify(mode, token, challenge)
+        if result is not None:
+            return PlainTextResponse(content=result)
+
+        return JSONResponse(
+            content={"error": "Verification failed"},
+            status_code=403,
+        )
+
+    @app.post("/webhook/whatsapp")
+    async def webhook_whatsapp_message(request: Request):
+        """
+        Recibe mensajes entrantes de WhatsApp.
+
+        Meta envia un POST con el payload del mensaje.
+        Lo procesamos y respondemos via el WhatsAppListener.
+        """
+        listener = app.state.whatsapp_listener
+        if listener is None:
+            return JSONResponse(
+                content={"error": "WhatsApp not configured"},
+                status_code=503,
+            )
+
+        try:
+            payload = await request.json()
+            result = listener.handle_webhook_message(payload)
+            logger.info(f"WhatsApp webhook: {result}")
+            return result
+        except Exception as e:
+            logger.error(f"Error en webhook WhatsApp: {e}")
             return JSONResponse(
                 content={"error": str(e)},
                 status_code=400,
