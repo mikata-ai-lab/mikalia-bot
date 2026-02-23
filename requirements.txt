@@ -9,6 +9,11 @@ python-dotenv>=1.0.0       # Carga variables de .env
 pyyaml>=6.0                # Parseo de config.yaml y front matter
 croniter>=2.0.0            # Cron expression parsing para scheduler
 
+# --- Semantic Memory ---
+numpy>=2.0.0               # Operaciones vectoriales para embeddings
+onnxruntime>=1.18.0        # Inferencia de modelo ONNX (ligero, sin PyTorch)
+tokenizers>=0.19.0         # Tokenizacion rapida (HuggingFace)
+
 # --- Document Analysis (F2) ---
 pdfplumber>=0.10.0         # Extracción de texto de PDFs
 python-docx>=1.1.0         # Lectura de archivos .docx

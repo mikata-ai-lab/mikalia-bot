@@ -22,10 +22,15 @@ from mikalia.tools.base import BaseTool, ToolResult
 
 
 class SearchMemoryTool(BaseTool):
-    """Busca en la memoria de Mikalia por texto."""
+    """Busca en la memoria de Mikalia — semantica + SQL."""
 
-    def __init__(self, memory: MemoryManager) -> None:
+    def __init__(
+        self,
+        memory: MemoryManager,
+        vector_memory: Any | None = None,
+    ) -> None:
         self._memory = memory
+        self._vector = vector_memory
 
     @property
     def name(self) -> str:
@@ -34,7 +39,8 @@ class SearchMemoryTool(BaseTool):
     @property
     def description(self) -> str:
         return (
-            "Search Mikalia's memory for known facts. "
+            "Search Mikalia's memory for known facts by meaning. "
+            "Uses semantic search (understands context, not just keywords). "
             "Use this to recall information about Mikata-kun, projects, "
             "preferences, or any previously learned knowledge."
         )
@@ -45,7 +51,7 @@ class SearchMemoryTool(BaseTool):
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "Text to search for in memory",
+                    "description": "Text to search for in memory (searches by meaning)",
                 },
             },
             "required": ["query"],
@@ -53,18 +59,47 @@ class SearchMemoryTool(BaseTool):
 
     def execute(self, query: str, **_: Any) -> ToolResult:
         try:
+            results = []
+
+            # 1. Busqueda semantica (si disponible)
+            if self._vector is not None:
+                try:
+                    semantic = self._vector.search(query, n_results=5)
+                    for r in semantic:
+                        results.append({
+                            "text": r["text"],
+                            "score": r["score"],
+                            "source": "semantic",
+                        })
+                except Exception:
+                    pass  # Fallback a SQL si falla
+
+            # 2. Busqueda SQL (siempre como complemento)
             facts = self._memory.search_facts(query, limit=10)
-            if not facts:
+            for f in facts:
+                text = f"[{f['category']}] {f['subject']}: {f['fact']}"
+                # Evitar duplicados con resultados semanticos
+                if not any(r["text"].endswith(f["fact"]) for r in results):
+                    results.append({
+                        "text": text,
+                        "score": 0.0,
+                        "source": "sql",
+                    })
+
+            if not results:
                 return ToolResult(
                     success=True,
                     output=f"No encontre nada sobre '{query}' en mi memoria.",
                 )
 
-            lines = [f"Encontre {len(facts)} resultado(s):"]
-            for f in facts:
-                lines.append(
-                    f"- [{f['category']}] {f['subject']}: {f['fact']}"
-                )
+            # Ordenar: semanticos primero (por score), SQL despues
+            results.sort(key=lambda x: x["score"], reverse=True)
+            results = results[:10]
+
+            lines = [f"Encontre {len(results)} resultado(s):"]
+            for r in results:
+                prefix = f"[{r['score']:.0%}] " if r["score"] > 0 else ""
+                lines.append(f"- {prefix}{r['text']}")
             return ToolResult(success=True, output="\n".join(lines))
 
         except Exception as e:
@@ -74,8 +109,13 @@ class SearchMemoryTool(BaseTool):
 class AddFactTool(BaseTool):
     """Permite a Mikalia aprender y recordar cosas nuevas."""
 
-    def __init__(self, memory: MemoryManager) -> None:
+    def __init__(
+        self,
+        memory: MemoryManager,
+        vector_memory: Any | None = None,
+    ) -> None:
         self._memory = memory
+        self._vector = vector_memory
 
     @property
     def name(self) -> str:
@@ -123,6 +163,15 @@ class AddFactTool(BaseTool):
                 source="conversation",
                 confidence=0.9,
             )
+
+            # Indexar en vector store si disponible
+            if self._vector is not None:
+                try:
+                    text = f"{category} {subject}: {fact}"
+                    self._vector.add(fact_id, text)
+                except Exception:
+                    pass  # No bloquear si vector falla
+
             return ToolResult(
                 success=True,
                 output=f"Aprendido y guardado (fact #{fact_id}): [{category}] {subject}: {fact}",

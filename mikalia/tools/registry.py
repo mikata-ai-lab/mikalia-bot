@@ -81,12 +81,17 @@ class ToolRegistry:
         return list(self._tools.keys())
 
     @classmethod
-    def with_defaults(cls, memory: Any = None) -> ToolRegistry:
+    def with_defaults(
+        cls,
+        memory: Any = None,
+        vector_memory: Any = None,
+    ) -> ToolRegistry:
         """
         Crea un registry con los tools por defecto de Mikalia.
 
         Args:
             memory: MemoryManager para memory tools (opcional).
+            vector_memory: VectorMemory para busqueda semantica (opcional).
         """
         registry = cls()
 
@@ -134,8 +139,8 @@ class ToolRegistry:
             )
             from mikalia.tools.daily_brief import DailyBriefTool
 
-            registry.register(SearchMemoryTool(memory))
-            registry.register(AddFactTool(memory))
+            registry.register(SearchMemoryTool(memory, vector_memory))
+            registry.register(AddFactTool(memory, vector_memory))
             registry.register(UpdateGoalTool(memory))
             registry.register(ListGoalsTool(memory))
             registry.register(DailyBriefTool(memory))
