@@ -404,15 +404,22 @@ def core():
 
     try:
         from mikalia.core.agent import MikaliaAgent
+        from mikalia.generation.client import MikaliaClient
 
-        agent = MikaliaAgent()
+        cfg = load_config()
+        # CLI local usa Opus para máxima capacidad
+        client = MikaliaClient(
+            api_key=cfg.anthropic_api_key,
+            model="claude-opus-4-6",
+        )
+        agent = MikaliaAgent(config=cfg, client=client)
         session_id = None
 
         rich_console.print(Panel(
-            "Soy Mikalia Core. Tengo memoria, herramientas, y un corazon.\n"
+            "Soy Mikalia Core [Opus]. Tengo memoria, herramientas, y un corazon.\n"
             "Escribe lo que necesites. Yo me encargo.\n\n"
             "Comandos: /quit /goals /facts",
-            title="Mikalia Core v2.0",
+            title="Mikalia Core v2.0 (Opus)",
             border_style="rgb(240,165,0)",
         ))
 

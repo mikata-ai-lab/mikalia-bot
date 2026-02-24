@@ -6,8 +6,7 @@
 # ============================================================
 
 mikalia:
-  # Modelo de Claude a usar para generación de contenido
-  # claude-sonnet-4-5-20250929 = última versión, mejor calidad
+  # Modelo de Claude para Telegram / deploy (tools y tareas complejas)
   model: "claude-sonnet-4-5-20250929"
 
   # Modelo para chat casual (Telegram plática, sin tools)
