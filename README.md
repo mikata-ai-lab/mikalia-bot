@@ -1,6 +1,6 @@
 # Mikalia Bot — Mikata AI Lab
 
-**Autonomous AI agent and personal companion for [Mikata AI Lab](https://mikata-ai-lab.github.io).** Holds genuine conversations, generates bilingual blog posts, manages code via PRs, browses the web, generates images, speaks and listens with voice messages, streams responses in real-time, runs scheduled tasks, tracks habits and expenses, analyzes data, creates PDF reports, and talks to you on Telegram, WhatsApp, and Discord — all powered by Claude API with persistent memory, smart model routing, and 44 tools.
+**Autonomous AI agent and personal companion for [Mikata AI Lab](https://mikata-ai-lab.github.io).** Holds genuine conversations, generates bilingual blog posts, manages code via PRs, browses the web, generates images, speaks and listens with voice messages, streams responses in real-time, runs scheduled tasks, tracks habits and expenses, analyzes data, creates PDF reports, and talks to you on Telegram, WhatsApp, Discord, and a built-in web chat — all powered by Claude API with persistent memory, smart model routing, and 44 tools.
 
 Built by **Miguel "Mikata" Mata** and co-architected by **Claudia**. See [CLAUDIA.md](CLAUDIA.md) for the full story.
 
@@ -10,10 +10,10 @@ Built by **Miguel "Mikata" Mata** and co-architected by **Claudia**. See [CLAUDI
 
 | Metric | Value |
 |--------|-------|
-| **Tests** | 644 passing |
+| **Tests** | 658 passing |
 | **Tools** | 44 (31 base + 13 memory/skill) |
-| **Lines of code** | ~16,500+ |
-| **Channels** | CLI, Telegram (voice + streaming), WhatsApp (Twilio), Discord, FastAPI |
+| **Lines of code** | ~17,500+ |
+| **Channels** | CLI, Telegram (voice + streaming), WhatsApp (Twilio), Discord, Web Chat (SSE), FastAPI |
 | **Memory** | SQLite + vector search (semantic embeddings) |
 | **Model routing** | Haiku (casual chat) / Sonnet (tools) / Opus (local CLI) |
 | **Voice** | TTS (edge-tts) + STT (faster-whisper) + Telegram voice messages |
@@ -41,7 +41,7 @@ Built by **Miguel "Mikata" Mata** and co-architected by **Claudia**. See [CLAUDI
 - **Persistent memory**: SQLite-backed facts, goals, lessons, token tracking + vector embeddings for semantic search
 - **Agent loop**: Claude tool_use with dynamic context building (up to 20 tool rounds per message)
 - **Conversational AI**: Personality-first design — talks like a friend, uses tools only when it makes sense
-- **Multi-channel**: CLI REPL, Telegram (bidirectional + voice + streaming), WhatsApp (Twilio), Discord, FastAPI server
+- **Multi-channel**: CLI REPL, Telegram (bidirectional + voice + streaming), WhatsApp (Twilio), Discord, Web Chat (SSE streaming), FastAPI server
 - **Smart model routing**: Haiku for casual chat (~$0.005/msg), Sonnet for tools (~$0.03/msg), Opus for local CLI
 - **Voice**: TTS (Mexican neural voice) + STT (Whisper) + Telegram voice messages (full audio loop)
 - **Streaming**: Progressive message editing — responses appear in real-time on Telegram
@@ -112,15 +112,17 @@ python -m mikalia core
 
 This is Mikalia's main mode: a conversational AI with persistent memory, 44 tools, and a background scheduler that runs proactive tasks.
 
-### `serve` — FastAPI server
+### `serve` — FastAPI server + Web Chat
 
 ```bash
-# Start the HTTP API server
+# Start the HTTP API server with web chat
 python -m mikalia serve
 python -m mikalia serve --port 8080
 ```
 
-Endpoints: `/health`, `/stats`, `/goals`, `/jobs`, `/webhook/github`, `/webhook/whatsapp`, `/webhook/twilio`
+Open `http://localhost:8000/chat` for the web chat interface — dark theme, SSE streaming, session persistence.
+
+API endpoints: `/health`, `/stats`, `/goals`, `/jobs`, `/chat`, `/api/chat/stream`, `/api/chat/history`, `/webhook/github`, `/webhook/whatsapp`, `/webhook/twilio`
 
 ### `post` — Generate and publish a blog post
 
@@ -243,6 +245,7 @@ python -m mikalia health         # Check all connections
 | **Telegram** | Long polling | Bidirectional + Voice + Streaming | Active (Haiku/Sonnet) |
 | **WhatsApp** | Twilio webhooks | Bidirectional | Active |
 | **Discord** | discord.py | Bidirectional | Active |
+| **Web Chat** | SSE streaming | Bidirectional | Active |
 | **FastAPI** | HTTP REST | API | Active |
 
 ### Safety-First Design
@@ -330,16 +333,21 @@ mikalia-bot/
 │   │   ├── hugo_formatter.py       # Hugo page bundle formatter
 │   │   ├── git_ops.py              # Git operations
 │   │   └── pr_manager.py           # PR lifecycle
+│   ├── web/                        # Web chat interface
+│   │   ├── routes.py               # FastAPI router (/chat, /api/chat/stream)
+│   │   ├── static/chat.css         # Dark theme with gold/orange branding
+│   │   ├── static/chat.js          # SSE client, markdown renderer
+│   │   └── templates/chat.html     # Single-page chat UI
 │   ├── notifications/              # Multi-channel
 │   │   ├── notifier.py             # Strategy pattern dispatcher
 │   │   ├── telegram.py             # Telegram notifications
 │   │   ├── telegram_listener.py    # Telegram bidirectional chat
 │   │   ├── whatsapp.py             # WhatsApp via Meta Cloud API
 │   │   ├── whatsapp_twilio.py      # WhatsApp via Twilio
-│   │   └── discord_listener.py    # Discord bot
+│   │   └── discord_listener.py     # Discord bot
 │   └── utils/
 │       └── logger.py               # Rich console + file logging
-├── tests/                          # 644 tests
+├── tests/                          # 658 tests
 ├── prompts/                        # Claude API prompts
 ├── templates/                      # Post templates
 ├── .github/workflows/              # CI/CD (pytest, scheduled posts)
@@ -383,7 +391,7 @@ SMTP_PASSWORD=tu_app_password
 python -m pytest tests/ -v
 ```
 
-644 tests covering: core agent, memory, vector search, all 44 tools, post generation, safety, scheduling, browser, voice, image gen, WhatsApp, Twilio, FastAPI, data viz, CSV analysis, PDF reports, RAG, MCP, workflow triggers, and more.
+658 tests covering: core agent, memory, vector search, all 44 tools, post generation, safety, scheduling, browser, voice, image gen, WhatsApp, Twilio, FastAPI, web chat (SSE streaming), data viz, CSV analysis, PDF reports, RAG, MCP, workflow triggers, and more.
 
 ---
 
