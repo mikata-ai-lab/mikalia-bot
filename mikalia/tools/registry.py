@@ -85,6 +85,7 @@ class ToolRegistry:
         cls,
         memory: Any = None,
         vector_memory: Any = None,
+        client: Any = None,
     ) -> ToolRegistry:
         """
         Crea un registry con los tools por defecto de Mikalia.
@@ -92,9 +93,11 @@ class ToolRegistry:
         Args:
             memory: MemoryManager para memory tools (opcional).
             vector_memory: VectorMemory para busqueda semantica (opcional).
+            client: MikaliaClient para tools que usan Claude API (opcional).
         """
         registry = cls()
 
+        # === Core tools (siempre disponibles) ===
         from mikalia.tools.file_ops import (
             FileReadTool,
             FileWriteTool,
@@ -136,7 +139,41 @@ class ToolRegistry:
         registry.register(SpeechToTextTool())
         registry.register(ImageGenerationTool())
 
-        # Memory tools (requieren MemoryManager)
+        # === Extended tools (sin dependencias) ===
+        from mikalia.tools.api_fetch import ApiFetchTool
+        from mikalia.tools.system_monitor import SystemMonitorTool
+        from mikalia.tools.weather import WeatherTool
+        from mikalia.tools.email_sender import EmailSenderTool
+        from mikalia.tools.code_sandbox import CodeSandboxTool
+        from mikalia.tools.pomodoro import PomodoroTool
+        from mikalia.tools.data_viz import DataVisualizationTool
+        from mikalia.tools.csv_analyzer import CsvAnalyzerTool
+        from mikalia.tools.pdf_report import PdfReportTool
+        from mikalia.tools.rss_reader import RssFeedTool
+
+        registry.register(ApiFetchTool())
+        registry.register(SystemMonitorTool())
+        registry.register(WeatherTool())
+        registry.register(EmailSenderTool())
+        registry.register(CodeSandboxTool())
+        registry.register(PomodoroTool())
+        registry.register(DataVisualizationTool())
+        registry.register(CsvAnalyzerTool())
+        registry.register(PdfReportTool())
+        registry.register(RssFeedTool())
+
+        # === AI-powered tools (usan Claude API, graceful sin client) ===
+        from mikalia.tools.translate import TranslateTool
+        from mikalia.tools.url_summarizer import UrlSummarizerTool
+        from mikalia.tools.pr_reviewer import PrReviewerTool
+        from mikalia.tools.multi_model import MultiModelTool
+
+        registry.register(TranslateTool(client))
+        registry.register(UrlSummarizerTool(client))
+        registry.register(PrReviewerTool(client))
+        registry.register(MultiModelTool(client))
+
+        # === Memory tools (requieren MemoryManager) ===
         if memory is not None:
             from mikalia.tools.memory_tools import (
                 SearchMemoryTool,
@@ -145,12 +182,24 @@ class ToolRegistry:
                 ListGoalsTool,
             )
             from mikalia.tools.daily_brief import DailyBriefTool
+            from mikalia.tools.habit_tracker import HabitTrackerTool
+            from mikalia.tools.conversation_analytics import ConversationAnalyticsTool
+            from mikalia.tools.expense_tracker import ExpenseTrackerTool
+            from mikalia.tools.workflow_triggers import WorkflowTriggersTool
+            from mikalia.tools.rag_pipeline import RagPipelineTool
+            from mikalia.tools.mcp_server import McpServerTool
 
             registry.register(SearchMemoryTool(memory, vector_memory))
             registry.register(AddFactTool(memory, vector_memory))
             registry.register(UpdateGoalTool(memory))
             registry.register(ListGoalsTool(memory))
             registry.register(DailyBriefTool(memory))
+            registry.register(HabitTrackerTool(memory))
+            registry.register(ConversationAnalyticsTool(memory))
+            registry.register(ExpenseTrackerTool(memory))
+            registry.register(WorkflowTriggersTool(memory))
+            registry.register(RagPipelineTool(client, vector_memory))
+            registry.register(McpServerTool(registry))
 
             # Skill tools (auto-creacion de herramientas)
             from mikalia.core.skill_creator import SkillCreator

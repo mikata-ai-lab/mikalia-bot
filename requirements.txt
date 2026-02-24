@@ -35,6 +35,10 @@ playwright>=1.40.0         # Browser automation (Chromium headless)
 edge-tts>=6.1.0            # Text-to-Speech (Microsoft Neural, gratis)
 faster-whisper>=1.0.0      # Speech-to-Text (Whisper ONNX, local)
 
+# --- Data & Reports ---
+matplotlib>=3.8.0          # Graficas y visualizaciones de datos
+fpdf2>=2.7.0               # Generacion de PDFs (puro Python, ligera)
+
 # --- Telegram ---
 python-telegram-bot>=21.0  # SDK de Telegram Bot API
 

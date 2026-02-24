@@ -114,7 +114,23 @@ class TestRegistryWithAll:
         assert "text_to_speech" in tools
         assert "speech_to_text" in tools
         assert "image_generation" in tools
-        assert len(tools) == 17
+        # Extended tools
+        assert "api_fetch" in tools
+        assert "system_monitor" in tools
+        assert "weather" in tools
+        assert "email_send" in tools
+        assert "code_sandbox" in tools
+        assert "pomodoro" in tools
+        assert "data_viz" in tools
+        assert "csv_analyzer" in tools
+        assert "pdf_report" in tools
+        assert "rss_feed" in tools
+        # AI-powered tools
+        assert "translate" in tools
+        assert "url_summarizer" in tools
+        assert "pr_reviewer" in tools
+        assert "multi_model" in tools
+        assert len(tools) == 31
 
     def test_with_defaults_and_memory_has_all_tools(self, tmp_path):
         from pathlib import Path
@@ -135,4 +151,11 @@ class TestRegistryWithAll:
         assert "text_to_speech" in tools
         assert "speech_to_text" in tools
         assert "image_generation" in tools
-        assert len(tools) == 24
+        # New memory-dependent tools
+        assert "habit_tracker" in tools
+        assert "conversation_analytics" in tools
+        assert "expense_tracker" in tools
+        assert "workflow_triggers" in tools
+        assert "rag_pipeline" in tools
+        assert "mcp_server" in tools
+        assert len(tools) == 44
