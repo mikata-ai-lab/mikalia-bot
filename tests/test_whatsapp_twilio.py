@@ -27,21 +27,21 @@ from mikalia.notifications.notifier import Event
 
 class TestTwilioWhatsApp:
     def test_is_configured_true(self):
-        wa = TwilioWhatsApp("AC123", "token", "+14155238886", "+528131223530")
+        wa = TwilioWhatsApp("AC123", "token", "+14155238886", "+521234567890")
         assert wa.is_configured()
 
     def test_is_configured_false(self):
-        wa = TwilioWhatsApp("", "token", "+14155238886", "+528131223530")
+        wa = TwilioWhatsApp("", "token", "+14155238886", "+521234567890")
         assert not wa.is_configured()
 
     def test_normalize_number_plain(self):
-        assert TwilioWhatsApp._normalize_number("528131223530") == "whatsapp:+528131223530"
+        assert TwilioWhatsApp._normalize_number("521234567890") == "whatsapp:+521234567890"
 
     def test_normalize_number_with_plus(self):
-        assert TwilioWhatsApp._normalize_number("+528131223530") == "whatsapp:+528131223530"
+        assert TwilioWhatsApp._normalize_number("+521234567890") == "whatsapp:+521234567890"
 
     def test_normalize_number_already_whatsapp(self):
-        assert TwilioWhatsApp._normalize_number("whatsapp:+528131223530") == "whatsapp:+528131223530"
+        assert TwilioWhatsApp._normalize_number("whatsapp:+521234567890") == "whatsapp:+521234567890"
 
     @patch("mikalia.notifications.whatsapp_twilio.requests.post")
     def test_send_message_success(self, mock_post):
@@ -50,7 +50,7 @@ class TestTwilioWhatsApp:
             json=lambda: {"sid": "SM123", "status": "queued"},
         )
 
-        wa = TwilioWhatsApp("AC123", "token", "+14155238886", "+528131223530")
+        wa = TwilioWhatsApp("AC123", "token", "+14155238886", "+521234567890")
         result = wa.send_message("Hola!")
 
         assert result is True
@@ -59,7 +59,7 @@ class TestTwilioWhatsApp:
         assert call_args.kwargs["auth"] == ("AC123", "token")
         payload = call_args.kwargs["data"]
         assert payload["From"] == "whatsapp:+14155238886"
-        assert payload["To"] == "whatsapp:+528131223530"
+        assert payload["To"] == "whatsapp:+521234567890"
         assert payload["Body"] == "Hola!"
 
     @patch("mikalia.notifications.whatsapp_twilio.requests.post")
@@ -69,7 +69,7 @@ class TestTwilioWhatsApp:
             text="Bad request",
         )
 
-        wa = TwilioWhatsApp("AC123", "token", "+14155238886", "+528131223530")
+        wa = TwilioWhatsApp("AC123", "token", "+14155238886", "+521234567890")
         result = wa.send_message("Hola!")
 
         assert result is False
@@ -79,7 +79,7 @@ class TestTwilioWhatsApp:
         import requests as req
         mock_post.side_effect = req.Timeout("timeout")
 
-        wa = TwilioWhatsApp("AC123", "token", "+14155238886", "+528131223530")
+        wa = TwilioWhatsApp("AC123", "token", "+14155238886", "+521234567890")
         result = wa.send_message("Hola!")
 
         assert result is False
@@ -91,13 +91,13 @@ class TestTwilioWhatsApp:
             json=lambda: {"sid": "SM123"},
         )
 
-        wa = TwilioWhatsApp("AC123", "token", "+14155238886", "+528131223530")
+        wa = TwilioWhatsApp("AC123", "token", "+14155238886", "+521234567890")
         result = wa.send(Event.POST_PUBLISHED, {"title": "Test", "url": "http://x.com"})
 
         assert result is True
 
     def test_send_unknown_event(self):
-        wa = TwilioWhatsApp("AC123", "token", "+14155238886", "+528131223530")
+        wa = TwilioWhatsApp("AC123", "token", "+14155238886", "+521234567890")
         with patch.object(wa, "_templates", {}):
             result = wa.send(Event.POST_PUBLISHED, {})
             assert result is False
@@ -109,7 +109,7 @@ class TestTwilioWhatsApp:
             json=lambda: {"sid": "SM123"},
         )
 
-        wa = TwilioWhatsApp("AC123", "token", "+14155238886", "+528131223530")
+        wa = TwilioWhatsApp("AC123", "token", "+14155238886", "+521234567890")
         wa.send_message("x" * 2000)
 
         payload = mock_post.call_args.kwargs["data"]
@@ -122,7 +122,7 @@ class TestTwilioWhatsApp:
             json=lambda: {"sid": "SM123"},
         )
 
-        wa = TwilioWhatsApp("AC123", "token", "+14155238886", "+528131223530")
+        wa = TwilioWhatsApp("AC123", "token", "+14155238886", "+521234567890")
         wa.send_message("Hola!", to="+529999999999")
 
         payload = mock_post.call_args.kwargs["data"]
@@ -139,7 +139,7 @@ class TestTwilioWhatsAppListener:
             account_sid="AC123",
             auth_token="token",
             from_number="+14155238886",
-            allowed_numbers=["528131223530"],
+            allowed_numbers=["521234567890"],
             **kwargs,
         )
 
@@ -152,7 +152,7 @@ class TestTwilioWhatsAppListener:
         listener = self._make_listener(on_message=on_msg)
 
         form_data = {
-            "From": "whatsapp:+528131223530",
+            "From": "whatsapp:+521234567890",
             "To": "whatsapp:+14155238886",
             "Body": "Hola Mikalia!",
             "MessageSid": "SM123",
@@ -186,7 +186,7 @@ class TestTwilioWhatsAppListener:
         listener = self._make_listener()
 
         form_data = {
-            "From": "whatsapp:+528131223530",
+            "From": "whatsapp:+521234567890",
             "Body": "",
             "MessageSid": "SM123",
         }
@@ -203,7 +203,7 @@ class TestTwilioWhatsAppListener:
         listener = self._make_listener(on_message=on_msg)
 
         form_data = {
-            "From": "whatsapp:+528131223530",
+            "From": "whatsapp:+521234567890",
             "Body": "Test",
             "MessageSid": "SM123",
         }
@@ -213,7 +213,7 @@ class TestTwilioWhatsAppListener:
         assert len(reply_fns) == 1
         with patch.object(listener._channel, "send_message", return_value=True) as mock:
             reply_fns[0]("Respuesta!")
-            mock.assert_called_once_with("Respuesta!", to="528131223530")
+            mock.assert_called_once_with("Respuesta!", to="521234567890")
 
     def test_send_no_recipient_fails(self):
         listener = TwilioWhatsAppListener(
@@ -261,7 +261,7 @@ class TestTwilioAPI:
             account_sid="AC123",
             auth_token="token",
             from_number="+14155238886",
-            allowed_numbers=["528131223530"],
+            allowed_numbers=["521234567890"],
         )
 
         from mikalia.api import create_app
@@ -286,7 +286,7 @@ class TestTwilioAPI:
         resp = client.post(
             "/webhook/twilio",
             data={
-                "From": "whatsapp:+528131223530",
+                "From": "whatsapp:+521234567890",
                 "To": "whatsapp:+14155238886",
                 "Body": "Hola!",
                 "MessageSid": "SM123",

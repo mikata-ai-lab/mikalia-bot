@@ -13,7 +13,7 @@ Setup:
         TWILIO_ACCOUNT_SID=ACxxxxxxx
         TWILIO_AUTH_TOKEN=xxxxxxx
         TWILIO_WHATSAPP_FROM=+14155238886
-        WHATSAPP_RECIPIENT=+528131223530
+        WHATSAPP_RECIPIENT=+521234567890
 
 Uso:
     from mikalia.notifications.whatsapp_twilio import TwilioWhatsApp
