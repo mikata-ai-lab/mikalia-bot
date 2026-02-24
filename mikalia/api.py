@@ -27,7 +27,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, Query, Request
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 
 from mikalia.core.memory import MemoryManager
@@ -238,7 +238,7 @@ def _register_routes(app: FastAPI) -> None:
         de PRs, pushes, CI failures, etc.
         """
         try:
-            payload = await request.json()
+            await request.json()  # Consumir body del webhook
             event_type = request.headers.get("X-GitHub-Event", "unknown")
 
             logger.info(f"GitHub webhook: {event_type}")

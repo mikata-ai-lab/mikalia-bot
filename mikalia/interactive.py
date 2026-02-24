@@ -27,10 +27,7 @@ Uso:
 
 from __future__ import annotations
 
-import subprocess
 import sys
-import tempfile
-from pathlib import Path
 
 from rich.console import Console
 from rich.panel import Panel
@@ -42,8 +39,6 @@ from mikalia.generation.client import MikaliaClient
 from mikalia.generation.post_generator import PostGenerator
 from mikalia.publishing.hugo_formatter import HugoFormatter
 from mikalia.publishing.git_ops import GitOperations
-from mikalia.notifications.notifier import Notifier, Event
-from mikalia.notifications.telegram import TelegramChannel
 from mikalia.utils.logger import get_logger
 
 logger = get_logger("mikalia.interactive")

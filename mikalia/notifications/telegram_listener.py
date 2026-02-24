@@ -46,7 +46,7 @@ def _markdown_to_telegram(text: str) -> str:
     code_blocks: list[str] = []
 
     def _save_code_block(match: re.Match) -> str:
-        lang = match.group(1) or ""
+        _lang = match.group(1) or ""  # noqa: F841 — preservar para uso futuro
         code = match.group(2).strip()
         code_blocks.append(f"<pre><code>{code}</code></pre>")
         return f"\x00CODEBLOCK{len(code_blocks) - 1}\x00"

@@ -18,7 +18,7 @@ import subprocess
 import pytest
 from unittest.mock import patch, MagicMock
 
-from mikalia.tools.code_sandbox import CodeSandboxTool, MAX_TIMEOUT, BLOCKED_IMPORTS, BLOCKED_PATTERNS
+from mikalia.tools.code_sandbox import CodeSandboxTool, MAX_TIMEOUT, ALLOWED_MODULES, BLOCKED_PATTERNS
 
 
 # ================================================================

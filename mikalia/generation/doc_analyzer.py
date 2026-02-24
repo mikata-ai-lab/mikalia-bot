@@ -35,7 +35,6 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 import yaml
 
@@ -438,7 +437,7 @@ class DocAnalyzer:
             if linea.startswith("---"):
                 continue
             lineas_significativas.append(linea)
-            if sum(len(l) for l in lineas_significativas) > 500:
+            if sum(len(ln) for ln in lineas_significativas) > 500:
                 break
 
         return " ".join(lineas_significativas)[:500]

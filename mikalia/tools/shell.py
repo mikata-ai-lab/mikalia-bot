@@ -15,8 +15,6 @@ Uso:
 
 from __future__ import annotations
 
-import os
-import platform
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -85,6 +83,22 @@ class ShellExecTool(BaseTool):
                     success=False,
                     error=f"Comando bloqueado: contiene patron peligroso '{pattern}'",
                 )
+
+        # Bloquear command chaining (previene injection via &&, ||, ;, |, $())
+        chaining_chars = ["&&", "||", ";", "|", "`", "$(", "${"]
+        for ch in chaining_chars:
+            if ch in command:
+                return ToolResult(
+                    success=False,
+                    error=f"Comando bloqueado: encadenamiento de comandos no permitido ('{ch}')",
+                )
+
+        # Bloquear redirecciones que podrian escribir a archivos sensibles
+        if ">" in command and not command.strip().startswith("echo"):
+            return ToolResult(
+                success=False,
+                error="Comando bloqueado: redireccion de output no permitida",
+            )
 
         # Validar whitelist
         first_token = command.strip().split()[0] if command.strip() else ""

@@ -35,11 +35,11 @@ Uso:
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 
 from mikalia.generation.client import MikaliaClient
-from mikalia.generation.self_review import SelfReviewer, ReviewResult
+from mikalia.generation.self_review import SelfReviewer
 from mikalia.config import AppConfig
 from mikalia.utils.logger import get_logger
 

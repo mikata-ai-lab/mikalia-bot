@@ -40,8 +40,8 @@ from pathlib import Path
 from mikalia.config import AppConfig
 from mikalia.generation.client import MikaliaClient
 from mikalia.generation.repo_analyzer import RepoAnalyzer, RepoContext
-from mikalia.agent.safety import SafetyGuard, Severity
-from mikalia.agent.task_planner import TaskPlanner, TaskPlan, TaskType
+from mikalia.agent.safety import SafetyGuard, SafetyResult, Severity
+from mikalia.agent.task_planner import TaskPlanner, TaskPlan
 from mikalia.publishing.pr_manager import PRManager, PullRequest
 from mikalia.utils.logger import get_logger
 
@@ -498,7 +498,7 @@ IMPORTANT: Respond ONLY with valid JSON, no markdown fences."""
             if not content_check.allowed:
                 return content_check
 
-        from mikalia.agent.safety import SafetyResult as SR, Severity
+        from mikalia.agent.safety import SafetyResult as SR
         return SR(
             allowed=True,
             reason="Todos los cambios validados",

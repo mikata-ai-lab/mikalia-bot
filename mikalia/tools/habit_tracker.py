@@ -7,7 +7,6 @@ Ayuda a Mikata-kun a construir rutinas saludables.
 
 from __future__ import annotations
 
-import time
 from typing import Any
 
 from mikalia.tools.base import BaseTool, ToolResult

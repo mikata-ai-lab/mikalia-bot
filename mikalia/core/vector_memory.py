@@ -16,11 +16,8 @@ Uso:
 
 from __future__ import annotations
 
-import json
 import sqlite3
-import struct
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 

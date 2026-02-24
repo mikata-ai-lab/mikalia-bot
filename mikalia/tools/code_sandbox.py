@@ -22,21 +22,26 @@ from mikalia.utils.logger import get_logger
 
 logger = get_logger("mikalia.tools.code_sandbox")
 
-# Imports peligrosos que no se permiten
-BLOCKED_IMPORTS = [
-    "os.system", "subprocess", "shutil.rmtree",
-    "socket", "http.server", "smtplib",
-    "__import__", "importlib",
-    "ctypes", "multiprocessing",
-]
+# Modulos permitidos (whitelist — todo lo demas se bloquea)
+ALLOWED_MODULES = {
+    "math", "json", "re", "datetime", "collections", "itertools",
+    "statistics", "random", "string", "textwrap", "csv", "io",
+    "decimal", "fractions", "operator", "functools", "typing",
+    "dataclasses", "enum", "copy", "pprint", "bisect", "heapq",
+    "array", "struct", "hashlib", "base64", "html", "urllib.parse",
+    "time",
+}
 
-# Patrones peligrosos en codigo
+# Patrones peligrosos en codigo (case-insensitive)
 BLOCKED_PATTERNS = [
-    "open('/etc", "open('C:\\\\",
+    "open(", "eval(", "exec(",
+    "__builtins__", "__class__", "__subclasses__",
+    "__import__", "__globals__", "__code__",
+    "globals(", "locals(", "vars(",
+    "getattr(", "setattr(", "delattr(",
+    "compile(", "breakpoint(",
+    ".env", "api_key", "secret", "token", "password",
     "rm -rf", "os.remove", "os.unlink",
-    "eval(", "exec(",
-    "__builtins__", "__class__",
-    ".env", "API_KEY", "SECRET", "TOKEN", "PASSWORD",
 ]
 
 MAX_TIMEOUT = 30
@@ -150,12 +155,25 @@ class CodeSandboxTool(BaseTool):
         """Verifica que el codigo no tenga patrones peligrosos."""
         code_lower = code.lower()
 
+        # Bloquear patrones peligrosos
         for pattern in BLOCKED_PATTERNS:
             if pattern.lower() in code_lower:
                 return f"Codigo bloqueado: patron peligroso detectado ({pattern})"
 
-        for imp in BLOCKED_IMPORTS:
-            if imp in code:
-                return f"Import bloqueado: {imp}"
+        # Bloquear string concatenation bypass (e.g., 'ev'+'al')
+        concat_patterns = ["'+'", '"+"', "'+\"", "\"+'" ]
+        for cp in concat_patterns:
+            if cp in code:
+                return "Codigo bloqueado: concatenacion de strings sospechosa"
+
+        # Whitelist de imports — solo permitir modulos seguros
+        import re
+        import_pattern = re.compile(
+            r"(?:^|;|\n)\s*(?:import|from)\s+([a-zA-Z_][a-zA-Z0-9_.]*)",
+        )
+        for match in import_pattern.finditer(code):
+            module = match.group(1).split(".")[0]
+            if module not in ALLOWED_MODULES:
+                return f"Import bloqueado: '{module}' no esta en la whitelist de modulos seguros"
 
         return None

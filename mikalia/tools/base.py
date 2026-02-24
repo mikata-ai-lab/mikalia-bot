@@ -65,10 +65,14 @@ class BaseTool(ABC):
         """JSON Schema de los parametros que acepta."""
         ...
 
-    @abstractmethod
     def execute(self, **params: Any) -> ToolResult:
-        """Ejecuta el tool con los parametros dados."""
-        ...
+        """Ejecuta el tool con los parametros dados.
+
+        Las subclases definen parametros con nombre (e.g., execute(self, code, timeout))
+        y **_ para absorber extras. No usamos @abstractmethod para evitar
+        conflictos de signature con mypy en las 44 implementaciones.
+        """
+        raise NotImplementedError(f"{self.__class__.__name__}.execute() no implementado")
 
     def to_claude_definition(self) -> dict[str, Any]:
         """

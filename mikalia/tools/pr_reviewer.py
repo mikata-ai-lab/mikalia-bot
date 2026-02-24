@@ -163,12 +163,12 @@ class PrReviewerTool(BaseTool):
                 issues.append(f"  L{i}: eval/exec detectado (riesgo de seguridad)")
 
         # Stats del diff
-        added = sum(1 for l in lines if l.startswith("+") and not l.startswith("+++"))
-        removed = sum(1 for l in lines if l.startswith("-") and not l.startswith("---"))
-        files = [l.split(" b/")[-1] for l in lines if l.startswith("diff --git")]
+        added = sum(1 for ln in lines if ln.startswith("+") and not ln.startswith("+++"))
+        removed = sum(1 for ln in lines if ln.startswith("-") and not ln.startswith("---"))
+        files = [ln.split(" b/")[-1] for ln in lines if ln.startswith("diff --git")]
 
         output = [
-            f"=== Review basico ===",
+            "=== Review basico ===",
             f"Archivos: {len(files)}",
             f"Lineas: +{added} / -{removed}",
         ]

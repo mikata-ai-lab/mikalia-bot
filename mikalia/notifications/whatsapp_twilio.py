@@ -26,7 +26,6 @@ from __future__ import annotations
 import hashlib
 import hmac
 from typing import Any
-from urllib.parse import urlencode
 
 import requests
 
@@ -213,7 +212,7 @@ class TwilioWhatsAppListener:
 
         sender_raw = form_data.get("From", "")
         body = form_data.get("Body", "").strip()
-        msg_sid = form_data.get("MessageSid", "")
+        _msg_sid = form_data.get("MessageSid", "")  # noqa: F841
 
         # Extraer numero sin prefijo "whatsapp:"
         sender = sender_raw.replace("whatsapp:", "").lstrip("+")
