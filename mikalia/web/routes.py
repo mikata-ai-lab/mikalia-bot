@@ -1,10 +1,13 @@
 """
 routes.py — Endpoints del web chat de Mikalia.
 
+Smart routing: casual → Haiku streaming, tools → Sonnet con 44 herramientas.
+Misma logica que Telegram pero con SSE en vez de editMessageText.
+
 Endpoints:
     GET  /chat              — Pagina HTML del chat
     POST /api/chat          — Chat sincrono (fallback)
-    POST /api/chat/stream   — Chat SSE streaming (principal)
+    POST /api/chat/stream   — Chat SSE con routing inteligente
     GET  /api/chat/history  — Historial de conversacion
 """
 
@@ -17,6 +20,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
+from mikalia.notifications.telegram_listener import _TOOL_KEYWORDS
 from mikalia.utils.logger import get_logger
 
 logger = get_logger("mikalia.web")
@@ -31,6 +35,16 @@ class ChatRequest(BaseModel):
     session_id: str | None = None
 
 
+def _classify_message(text: str) -> str:
+    """Clasifica mensaje como 'casual' (Haiku streaming) o 'tools' (Sonnet)."""
+    lower = text.lower().strip()
+    if any(kw in lower for kw in _TOOL_KEYWORDS):
+        return "tools"
+    if len(lower) > 150:
+        return "tools"
+    return "casual"
+
+
 @router.get("/chat", response_class=HTMLResponse)
 async def chat_page():
     """Sirve la pagina HTML del chat."""
@@ -40,7 +54,7 @@ async def chat_page():
 
 @router.post("/api/chat/stream")
 async def chat_stream(body: ChatRequest, request: Request):
-    """SSE streaming — endpoint principal de chat."""
+    """SSE con routing inteligente — casual streaming o tools completo."""
     agent = request.app.state.agent
 
     if agent is None:
@@ -48,6 +62,8 @@ async def chat_stream(body: ChatRequest, request: Request):
             iter([f"data: {json.dumps({'type': 'error', 'message': 'Agent not initialized'})}\n\n"]),
             media_type="text/event-stream",
         )
+
+    msg_type = _classify_message(body.message)
 
     def event_generator():
         session_id = body.session_id
@@ -58,17 +74,44 @@ async def chat_stream(body: ChatRequest, request: Request):
         yield f"data: {json.dumps({'type': 'session', 'session_id': session_id})}\n\n"
 
         try:
-            for chunk in agent.process_message_stream(
-                message=body.message,
-                channel="web",
-                session_id=session_id,
-            ):
-                yield f"data: {json.dumps({'type': 'chunk', 'text': chunk})}\n\n"
+            if msg_type == "casual":
+                # Casual → Haiku streaming (sin tools)
+                try:
+                    chat_model = getattr(
+                        agent._config.mikalia, "chat_model",
+                        "claude-haiku-4-5-20251001",
+                    )
+                    for chunk in agent.process_message_stream(
+                        message=body.message,
+                        channel="web",
+                        session_id=session_id,
+                        model_override=chat_model,
+                    ):
+                        yield f"data: {json.dumps({'type': 'chunk', 'text': chunk})}\n\n"
+                except Exception as stream_err:
+                    logger.warning(f"Stream fallback: {stream_err}")
+                    # Fallback: sync con Haiku sin tools
+                    response = agent.process_message(
+                        message=body.message,
+                        channel="web",
+                        session_id=session_id,
+                        model_override=chat_model,
+                        skip_tools=True,
+                    )
+                    yield f"data: {json.dumps({'type': 'chunk', 'text': response})}\n\n"
+            else:
+                # Tools → Sonnet con 44 herramientas (sin streaming)
+                response = agent.process_message(
+                    message=body.message,
+                    channel="web",
+                    session_id=session_id,
+                )
+                yield f"data: {json.dumps({'type': 'chunk', 'text': response})}\n\n"
 
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
 
         except Exception as e:
-            logger.error(f"Error en stream: {e}")
+            logger.error(f"Error en chat: {e}")
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
 
     return StreamingResponse(

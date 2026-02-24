@@ -6,6 +6,7 @@ Verifica:
 - POST /api/chat retorna respuesta sincrona
 - POST /api/chat/stream retorna eventos SSE
 - GET /api/chat/history retorna historial
+- Smart routing: casual → streaming, tools → Sonnet
 - Manejo de sesiones
 - Manejo de errores
 """
@@ -14,13 +15,15 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, PropertyMock
+from dataclasses import dataclass
 
 import pytest
 from fastapi.testclient import TestClient
 
 from mikalia.api import create_app
 from mikalia.core.memory import MemoryManager
+from mikalia.web.routes import _classify_message
 
 
 SCHEMA_PATH = Path(__file__).parent.parent / "mikalia" / "core" / "schema.sql"
@@ -32,6 +35,20 @@ def memory(tmp_path):
     return MemoryManager(str(db_path), str(SCHEMA_PATH))
 
 
+@dataclass
+class _FakeMikaliaConfig:
+    chat_model: str = "claude-haiku-4-5-20251001"
+
+
+@dataclass
+class _FakeConfig:
+    mikalia: _FakeMikaliaConfig = None
+
+    def __post_init__(self):
+        if self.mikalia is None:
+            self.mikalia = _FakeMikaliaConfig()
+
+
 @pytest.fixture
 def mock_agent(memory):
     """MikaliaAgent mock con memoria real."""
@@ -39,6 +56,7 @@ def mock_agent(memory):
     agent.memory = memory
     agent.process_message.return_value = "Hola! Soy Mikalia~"
     agent.session_id = "test-session"
+    agent._config = _FakeConfig()
 
     def fake_stream(message, channel="web", session_id=None, model_override=None):
         yield "Hola"
@@ -200,3 +218,57 @@ class TestChatHistory:
         resp = client.get(f"/api/chat/history?session_id={session_id}")
         data = resp.json()
         assert data["messages"] == []
+
+
+# ================================================================
+# Smart routing
+# ================================================================
+
+class TestSmartRouting:
+
+    def test_classify_greeting_as_casual(self):
+        """Saludo se clasifica como casual."""
+        assert _classify_message("hola que onda") == "casual"
+
+    def test_classify_short_question_as_casual(self):
+        """Pregunta corta es casual."""
+        assert _classify_message("como estas?") == "casual"
+
+    def test_classify_tool_keyword_as_tools(self):
+        """Keyword de tool se clasifica como tools."""
+        assert _classify_message("hazme un post sobre IA") == "tools"
+
+    def test_classify_code_keyword_as_tools(self):
+        """Keyword de codigo se clasifica como tools."""
+        assert _classify_message("analiza este repo") == "tools"
+
+    def test_classify_long_message_as_tools(self):
+        """Mensaje largo (>150 chars) se clasifica como tools."""
+        assert _classify_message("a" * 151) == "tools"
+
+    def test_casual_uses_streaming(self, client, mock_agent):
+        """Mensaje casual usa process_message_stream (Haiku)."""
+        client.post("/api/chat/stream", json={"message": "hola"})
+        mock_agent.process_message_stream.assert_called_once()
+        call_kwargs = mock_agent.process_message_stream.call_args
+        assert call_kwargs.kwargs.get("model_override") == "claude-haiku-4-5-20251001"
+
+    def test_tools_uses_process_message(self, client, mock_agent):
+        """Mensaje con tool keyword usa process_message (Sonnet)."""
+        client.post("/api/chat/stream", json={"message": "hazme un post sobre AI"})
+        mock_agent.process_message.assert_called_once()
+        call_kwargs = mock_agent.process_message.call_args
+        assert call_kwargs.kwargs.get("model_override") is None
+
+    def test_stream_fallback_on_error(self, client, mock_agent):
+        """Si streaming falla, cae a process_message sync."""
+        mock_agent.process_message_stream.side_effect = Exception("stream error")
+        resp = client.post("/api/chat/stream", json={"message": "hola"})
+        events = [
+            json.loads(line.replace("data: ", ""))
+            for line in resp.text.strip().split("\n\n")
+            if line.startswith("data: ")
+        ]
+        chunk_events = [e for e in events if e["type"] == "chunk"]
+        assert len(chunk_events) == 1
+        assert chunk_events[0]["text"] == "Hola! Soy Mikalia~"
