@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mikalia — Chat</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/chat.css">
+</head>
+<body>
+    <div id="app">
+        <header id="header">
+            <div class="header__brand">
+                <span class="header__title">Mikalia</span>
+                <span class="header__subtitle">Mikata AI Lab</span>
+            </div>
+            <span class="header__status" title="Estado de conexión"></span>
+        </header>
+
+        <main id="messages">
+            <div class="message message--assistant">
+                <div class="message__content">
+                    <p>Hola! Soy <strong>Mikalia</strong>. ¿En qué te puedo ayudar? ✨</p>
+                </div>
+            </div>
+        </main>
+
+        <footer id="input-area">
+            <form id="chat-form" autocomplete="off">
+                <textarea id="message-input" placeholder="Escribe un mensaje..." rows="1" autocomplete="off"></textarea>
+                <button id="send-btn" type="submit" aria-label="Enviar">
+                    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                    </svg>
+                </button>
+            </form>
+        </footer>
+    </div>
+
+    <script src="/static/chat.js"></script>
+</body>
+</html>

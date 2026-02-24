@@ -10,6 +10,10 @@ Endpoints:
     GET  /stats        — Token usage, conversations, facts
     GET  /goals        — Goals activos con progreso
     GET  /jobs         — Scheduled jobs y estado
+    GET  /chat         — Web chat interface
+    POST /api/chat     — Chat sincrono
+    POST /api/chat/stream — Chat SSE streaming
+    GET  /api/chat/history — Historial de conversacion
     POST /webhook/github    — Webhook para eventos de GitHub
     GET  /webhook/whatsapp  — Verificacion de webhook (Meta)
     POST /webhook/whatsapp  — Mensajes entrantes de WhatsApp
@@ -29,8 +33,10 @@ from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.staticfiles import StaticFiles
 
 from mikalia.core.memory import MemoryManager
+from mikalia.web.routes import router as web_router
 from mikalia.utils.logger import get_logger
 
 logger = get_logger("mikalia.api")
@@ -47,6 +53,7 @@ def create_app(
     db_path: str | None = None,
     whatsapp_listener: Any = None,
     twilio_listener: Any = None,
+    agent: Any = None,
 ) -> FastAPI:
     """
     Crea la app FastAPI de Mikalia.
@@ -54,6 +61,7 @@ def create_app(
     Args:
         memory: MemoryManager existente (reutiliza conexion).
         db_path: Ruta a la DB si no se pasa memory.
+        agent: MikaliaAgent para web chat.
 
     Returns:
         FastAPI app lista para servir.
@@ -63,21 +71,33 @@ def create_app(
 
     app = FastAPI(
         title="Mikalia API",
-        description="Sistema nervioso de Mikalia — monitoreo, stats y webhooks",
-        version="1.0.0",
+        description="Sistema nervioso de Mikalia — monitoreo, stats, webhooks y web chat",
+        version="2.0.0",
     )
 
     # Resolver memory
     if memory is None:
-        schema_path = Path(__file__).parent / "core" / "schema.sql"
-        resolved_db = db_path or os.environ.get(
-            "MIKALIA_DB_PATH", "data/mikalia.db"
-        )
-        memory = MemoryManager(resolved_db, str(schema_path))
+        if agent is not None:
+            memory = agent.memory
+        else:
+            schema_path = Path(__file__).parent / "core" / "schema.sql"
+            resolved_db = db_path or os.environ.get(
+                "MIKALIA_DB_PATH", "data/mikalia.db"
+            )
+            memory = MemoryManager(resolved_db, str(schema_path))
 
     app.state.memory = memory
     app.state.whatsapp_listener = whatsapp_listener
     app.state.twilio_listener = twilio_listener
+    app.state.agent = agent
+
+    # Web chat routes (antes de register_routes para que /chat tenga prioridad)
+    app.include_router(web_router)
+
+    # Static files
+    static_dir = Path(__file__).parent / "web" / "static"
+    if static_dir.exists():
+        app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
     _register_routes(app)
 

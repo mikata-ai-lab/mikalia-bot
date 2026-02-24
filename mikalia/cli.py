@@ -647,10 +647,15 @@ def serve(host: str, port: int):
     try:
         import uvicorn
         from mikalia.api import create_app
+        from mikalia.core.agent import MikaliaAgent
 
-        app = create_app()
+        cfg = load_config()
+        agent = MikaliaAgent(config=cfg)
+
+        app = create_app(agent=agent)
         logger.success(f"Mikalia API lista en http://{host}:{port}")
         logger.info("Endpoints: /health, /stats, /goals, /jobs, /webhook/github")
+        logger.info(f"Web chat: http://{host}:{port}/chat")
 
         uvicorn.run(app, host=host, port=port, log_level="info")
     except ImportError:
