@@ -1,6 +1,6 @@
 # Mikalia Bot — Mikata AI Lab
 
-**Autonomous AI agent and personal companion for [Mikata AI Lab](https://mikata-ai-lab.github.io).** Holds genuine conversations, generates bilingual blog posts, manages code via PRs, browses the web, generates images, speaks and listens, runs scheduled tasks, tracks habits and expenses, analyzes data, creates PDF reports, and talks to you on WhatsApp — all powered by Claude API with persistent memory and 44 tools.
+**Autonomous AI agent and personal companion for [Mikata AI Lab](https://mikata-ai-lab.github.io).** Holds genuine conversations, generates bilingual blog posts, manages code via PRs, browses the web, generates images, speaks and listens with voice messages, streams responses in real-time, runs scheduled tasks, tracks habits and expenses, analyzes data, creates PDF reports, and talks to you on Telegram, WhatsApp, and Discord — all powered by Claude API with persistent memory, smart model routing, and 44 tools.
 
 Built by **Miguel "Mikata" Mata** and co-architected by **Claudia**. See [CLAUDIA.md](CLAUDIA.md) for the full story.
 
@@ -10,15 +10,18 @@ Built by **Miguel "Mikata" Mata** and co-architected by **Claudia**. See [CLAUDI
 
 | Metric | Value |
 |--------|-------|
-| **Tests** | 598 passing |
+| **Tests** | 644 passing |
 | **Tools** | 44 (31 base + 13 memory/skill) |
-| **Lines of code** | ~15,000+ |
-| **Channels** | CLI, Telegram, WhatsApp (Twilio), FastAPI |
+| **Lines of code** | ~16,500+ |
+| **Channels** | CLI, Telegram (voice + streaming), WhatsApp (Twilio), Discord, FastAPI |
 | **Memory** | SQLite + vector search (semantic embeddings) |
-| **Voice** | TTS (edge-tts) + STT (faster-whisper) |
+| **Model routing** | Haiku (casual chat) / Sonnet (tools) / Opus (local CLI) |
+| **Voice** | TTS (edge-tts) + STT (faster-whisper) + Telegram voice messages |
+| **Streaming** | Progressive message editing for real-time responses |
 | **Browser** | Playwright (headless Chromium) |
 | **Image generation** | Pollinations (free) + DALL-E 3 |
 | **Self-evolving** | Creates its own tools at runtime |
+| **Cost tracking** | USD estimates per 24h / 7d / 30d |
 
 ---
 
@@ -38,14 +41,17 @@ Built by **Miguel "Mikata" Mata** and co-architected by **Claudia**. See [CLAUDI
 - **Persistent memory**: SQLite-backed facts, goals, lessons, token tracking + vector embeddings for semantic search
 - **Agent loop**: Claude tool_use with dynamic context building (up to 20 tool rounds per message)
 - **Conversational AI**: Personality-first design — talks like a friend, uses tools only when it makes sense
-- **Multi-channel**: CLI REPL, Telegram (bidirectional), WhatsApp (Twilio), FastAPI server
-- **Voice**: Text-to-Speech (Mexican neural voice) + Speech-to-Text (Whisper, local)
+- **Multi-channel**: CLI REPL, Telegram (bidirectional + voice + streaming), WhatsApp (Twilio), Discord, FastAPI server
+- **Smart model routing**: Haiku for casual chat (~$0.005/msg), Sonnet for tools (~$0.03/msg), Opus for local CLI
+- **Voice**: TTS (Mexican neural voice) + STT (Whisper) + Telegram voice messages (full audio loop)
+- **Streaming**: Progressive message editing — responses appear in real-time on Telegram
 - **Browser**: Headless Chromium — navigate, click, fill forms, extract data, run JavaScript, take screenshots
 - **Image generation**: Pollinations.ai (free) or OpenAI DALL-E 3
 - **Auto-skills**: Creates new tools at runtime from Python code, with safety validation
 - **Scheduler**: Cron-based (daily brief, health reminders, weekly review)
 - **Self-improvement**: Learns facts proactively + detects corrections to save lessons
 - **Conversation compression**: Summarizes old messages to save tokens
+- **Cost tracking**: `/stats` shows USD spending per 24h, 7d, 30d
 
 ---
 
@@ -139,6 +145,14 @@ python -m mikalia chat         # Standard mode
 python -m mikalia chat --core  # Core agent (memory + tools + scheduler)
 ```
 
+### `discord` — Discord bot
+
+```bash
+python -m mikalia discord
+```
+
+Requires `DISCORD_BOT_TOKEN` and `DISCORD_CHANNEL_ID` in `.env`.
+
 ### Other commands
 
 ```bash
@@ -181,7 +195,8 @@ python -m mikalia health         # Check all connections
        ┌───────────────────────┐
        │      Channels         │
        │  Telegram | WhatsApp  │
-       │  FastAPI  | CLI REPL  │
+       │  Discord  | FastAPI   │
+       │  CLI REPL             │
        └───────────────────────┘
 ```
 
@@ -224,9 +239,10 @@ python -m mikalia health         # Check all connections
 
 | Channel | Protocol | Direction | Status |
 |---------|----------|-----------|--------|
-| **CLI REPL** | stdin/stdout | Bidirectional | Active |
-| **Telegram** | Long polling | Bidirectional | Active |
+| **CLI REPL** | stdin/stdout | Bidirectional | Active (Opus) |
+| **Telegram** | Long polling | Bidirectional + Voice + Streaming | Active (Haiku/Sonnet) |
 | **WhatsApp** | Twilio webhooks | Bidirectional | Active |
+| **Discord** | discord.py | Bidirectional | Active |
 | **FastAPI** | HTTP REST | API | Active |
 
 ### Safety-First Design
@@ -319,10 +335,11 @@ mikalia-bot/
 │   │   ├── telegram.py             # Telegram notifications
 │   │   ├── telegram_listener.py    # Telegram bidirectional chat
 │   │   ├── whatsapp.py             # WhatsApp via Meta Cloud API
-│   │   └── whatsapp_twilio.py      # WhatsApp via Twilio
+│   │   ├── whatsapp_twilio.py      # WhatsApp via Twilio
+│   │   └── discord_listener.py    # Discord bot
 │   └── utils/
 │       └── logger.py               # Rich console + file logging
-├── tests/                          # 598 tests
+├── tests/                          # 644 tests
 ├── prompts/                        # Claude API prompts
 ├── templates/                      # Post templates
 ├── .github/workflows/              # CI/CD (pytest, scheduled posts)
@@ -349,6 +366,8 @@ TWILIO_ACCOUNT_SID=ACxxxxxxx
 TWILIO_AUTH_TOKEN=xxxxxxx
 TWILIO_WHATSAPP_FROM=+14155238886
 WHATSAPP_RECIPIENT=+521234567890
+DISCORD_BOT_TOKEN=...           # Optional, for Discord bot
+DISCORD_CHANNEL_ID=...          # Optional, Discord channel ID
 OPENAI_API_KEY=sk-...           # Optional, for DALL-E 3
 SMTP_HOST=smtp.gmail.com        # Optional, for email_send tool
 SMTP_PORT=587
@@ -364,7 +383,7 @@ SMTP_PASSWORD=tu_app_password
 python -m pytest tests/ -v
 ```
 
-598 tests covering: core agent, memory, vector search, all 44 tools, post generation, safety, scheduling, browser, voice, image gen, WhatsApp, Twilio, FastAPI, data viz, CSV analysis, PDF reports, RAG, MCP, workflow triggers, and more.
+644 tests covering: core agent, memory, vector search, all 44 tools, post generation, safety, scheduling, browser, voice, image gen, WhatsApp, Twilio, FastAPI, data viz, CSV analysis, PDF reports, RAG, MCP, workflow triggers, and more.
 
 ---
 
