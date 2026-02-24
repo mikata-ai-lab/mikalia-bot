@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+  mikalia:
+    build: .
+    container_name: mikalia
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - mikalia-data:/app/data
+      - mikalia-logs:/app/logs
+    ports:
+      - "8000:8000"
+    command: ["chat", "--core"]
+    healthcheck:
+      test: ["CMD", "python", "-m", "mikalia", "health"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  api:
+    build: .
+    container_name: mikalia-api
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - mikalia-data:/app/data
+      - mikalia-logs:/app/logs
+    ports:
+      - "8080:8000"
+    command: ["serve", "--host", "0.0.0.0", "--port", "8000"]
+    depends_on:
+      mikalia:
+        condition: service_healthy
+
+volumes:
+  mikalia-data:
+  mikalia-logs:

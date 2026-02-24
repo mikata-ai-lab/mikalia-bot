@@ -1,6 +1,6 @@
 # Mikalia Bot — Mikata AI Lab
 
-**Autonomous AI agent and personal companion for [Mikata AI Lab](https://mikata-ai-lab.github.io).** Holds genuine conversations, generates bilingual blog posts, manages code via PRs, browses the web, generates images, speaks and listens, runs scheduled tasks, and talks to you on WhatsApp — all powered by Claude API with persistent memory and 24 tools.
+**Autonomous AI agent and personal companion for [Mikata AI Lab](https://mikata-ai-lab.github.io).** Holds genuine conversations, generates bilingual blog posts, manages code via PRs, browses the web, generates images, speaks and listens, runs scheduled tasks, tracks habits and expenses, analyzes data, creates PDF reports, and talks to you on WhatsApp — all powered by Claude API with persistent memory and 44 tools.
 
 Built by **Miguel "Mikata" Mata** and co-architected by **Claudia**. See [CLAUDIA.md](CLAUDIA.md) for the full story.
 
@@ -10,9 +10,9 @@ Built by **Miguel "Mikata" Mata** and co-architected by **Claudia**. See [CLAUDI
 
 | Metric | Value |
 |--------|-------|
-| **Tests** | 423 passing |
-| **Tools** | 24 (17 base + 7 memory/skill) |
-| **Lines of code** | ~8,000+ |
+| **Tests** | 598 passing |
+| **Tools** | 44 (31 base + 13 memory/skill) |
+| **Lines of code** | ~15,000+ |
 | **Channels** | CLI, Telegram, WhatsApp (Twilio), FastAPI |
 | **Memory** | SQLite + vector search (semantic embeddings) |
 | **Voice** | TTS (edge-tts) + STT (faster-whisper) |
@@ -34,7 +34,7 @@ Built by **Miguel "Mikata" Mata** and co-architected by **Claudia**. See [CLAUDI
 
 ### Mikalia Core Highlights
 
-- **24 tools**: file ops, git, GitHub PRs, web fetch, blog posts, shell, memory, voice, browser, image generation, auto-skills
+- **44 tools**: file ops, git, GitHub PRs, web fetch, blog posts, shell, memory, voice, browser, image generation, auto-skills, data viz, CSV analysis, PDF reports, weather, email, code sandbox, pomodoro, habits, expenses, RSS, RAG, multi-model, MCP, workflow triggers, PR review, translation, URL summarizer, system monitor
 - **Persistent memory**: SQLite-backed facts, goals, lessons, token tracking + vector embeddings for semantic search
 - **Agent loop**: Claude tool_use with dynamic context building (up to 20 tool rounds per message)
 - **Conversational AI**: Personality-first design — talks like a friend, uses tools only when it makes sense
@@ -77,6 +77,19 @@ docker build -t mikalia .
 docker run -d --name mikalia --env-file .env mikalia
 ```
 
+### Docker Compose (VPS deployment)
+
+```bash
+# Start Mikalia Core + API server
+docker compose up -d
+
+# View logs
+docker compose logs -f mikalia
+
+# Restart
+docker compose restart
+```
+
 ---
 
 ## Commands
@@ -91,7 +104,7 @@ python -m mikalia chat --core
 python -m mikalia core
 ```
 
-This is Mikalia's main mode: a conversational AI with persistent memory, 24 tools, and a background scheduler that runs proactive tasks.
+This is Mikalia's main mode: a conversational AI with persistent memory, 44 tools, and a background scheduler that runs proactive tasks.
 
 ### `serve` — FastAPI server
 
@@ -155,7 +168,7 @@ python -m mikalia health         # Check all connections
        │                        │                            │
        v                        v                            v
 ┌──────────────┐    ┌───────────────────────┐    ┌──────────────────────┐
-│ SelfReview   │    │  ToolRegistry (24)    │    │ SafetyGuard          │
+│ SelfReview   │    │  ToolRegistry (44)    │    │ SafetyGuard          │
 │ HugoFormat   │    │  MemoryManager        │    │ TaskPlanner          │
 │ GitOps       │    │  VectorMemory         │    │ PRManager            │
 └──────┬───────┘    │  ContextBuilder       │    └──────────┬───────────┘
@@ -180,24 +193,31 @@ python -m mikalia health         # Check all connections
 | **MemoryManager** | SQLite: facts, goals, conversations, token usage, scheduled jobs |
 | **VectorMemory** | Semantic search with ONNX embeddings (all-MiniLM-L6-v2) |
 | **ContextBuilder** | Dynamic system prompt with personality, facts, lessons, goals |
-| **ToolRegistry** | 24 tools registered and exposed to Claude as tool definitions |
+| **ToolRegistry** | 44 tools registered and exposed to Claude as tool definitions |
 | **SkillCreator** | Creates new tools at runtime with safety validation |
 | **MikaliaScheduler** | Daemon thread with cron-based job execution |
 | **MikaliaClient** | Claude API wrapper with retry logic and token counting |
 
-### 24 Tools
+### 44 Tools
 
 | Category | Tools |
 |----------|-------|
 | **File ops** | file_read, file_write, file_list |
 | **Git** | git_status, git_diff, git_log, git_commit, git_push, git_branch |
-| **GitHub** | github_pr |
+| **GitHub** | github_pr, pr_reviewer |
 | **Memory** | search_memory, add_fact, update_goal, list_goals |
-| **Content** | blog_post, daily_brief |
-| **System** | shell_exec, web_fetch |
+| **Content** | blog_post, daily_brief, translate, url_summarizer |
+| **System** | shell_exec, web_fetch, system_monitor, weather |
 | **Browser** | browser (navigate, click, fill, extract, evaluate, screenshot) |
 | **Voice** | text_to_speech, speech_to_text |
 | **Creative** | image_generation (Pollinations + DALL-E 3) |
+| **Data** | csv_analyzer, data_viz (matplotlib), pdf_report |
+| **API** | api_fetch (REST client with auth), rss_feed |
+| **Productivity** | pomodoro, habit_tracker, expense_tracker |
+| **Communication** | email_send (SMTP) |
+| **Dev** | code_sandbox (safe Python execution) |
+| **AI** | rag_pipeline, multi_model, conversation_analytics |
+| **Automation** | workflow_triggers, mcp_server |
 | **Meta** | create_skill, list_skills |
 
 ### Multi-Channel Support
@@ -245,8 +265,9 @@ mikalia-bot/
 │   │   ├── scheduler.py            # MikaliaScheduler — cron-based jobs
 │   │   ├── skill_creator.py        # SkillCreator — runtime tool creation
 │   │   └── schema.sql              # Database schema + seed data
-│   ├── tools/                      # 24 tools for the agent
+│   ├── tools/                      # 44 tools for the agent
 │   │   ├── base.py                 # BaseTool abstract class
+│   │   ├── registry.py             # ToolRegistry — central tool management
 │   │   ├── file_ops.py             # FileRead, FileWrite, FileList
 │   │   ├── git_ops.py              # GitStatus, GitDiff, GitLog
 │   │   ├── github_tools.py         # GitCommit, GitPush, GitBranch, GitHubPR
@@ -258,8 +279,27 @@ mikalia-bot/
 │   │   ├── browser.py              # BrowserTool (Playwright)
 │   │   ├── voice.py                # TextToSpeech + SpeechToText
 │   │   ├── image_gen.py            # ImageGeneration (Pollinations + DALL-E)
+│   │   ├── api_fetch.py            # REST API client (GET/POST/PUT/DELETE)
+│   │   ├── translate.py            # AI-powered translation (Claude)
+│   │   ├── system_monitor.py       # CPU, RAM, disk, uptime
+│   │   ├── weather.py              # Weather via wttr.in (free)
+│   │   ├── email_sender.py         # SMTP email sender
+│   │   ├── code_sandbox.py         # Safe Python execution (subprocess)
+│   │   ├── pomodoro.py             # Pomodoro timer with notifications
+│   │   ├── data_viz.py             # Charts with matplotlib
+│   │   ├── csv_analyzer.py         # CSV/JSON analysis and stats
+│   │   ├── url_summarizer.py       # URL/YouTube content summarizer
+│   │   ├── pdf_report.py           # PDF report generation (fpdf2)
+│   │   ├── habit_tracker.py        # Daily habit tracking with streaks
+│   │   ├── rss_reader.py           # RSS/Atom feed reader
+│   │   ├── conversation_analytics.py # Chat history analytics
+│   │   ├── expense_tracker.py      # Income/expense tracking
+│   │   ├── pr_reviewer.py          # AI-powered PR code review
+│   │   ├── rag_pipeline.py         # RAG: chunk → embed → retrieve → answer
+│   │   ├── multi_model.py          # Multi-model routing (haiku/sonnet/opus)
+│   │   ├── workflow_triggers.py    # Event → action automation
+│   │   ├── mcp_server.py           # Model Context Protocol server
 │   │   ├── skill_tools.py          # CreateSkill, ListSkills
-│   │   ├── registry.py             # ToolRegistry — central tool management
 │   │   └── custom/                 # Auto-generated tools (runtime)
 │   ├── agent/                      # Code agent (F3)
 │   │   ├── safety.py               # SafetyGuard
@@ -282,7 +322,7 @@ mikalia-bot/
 │   │   └── whatsapp_twilio.py      # WhatsApp via Twilio
 │   └── utils/
 │       └── logger.py               # Rich console + file logging
-├── tests/                          # 423 tests
+├── tests/                          # 598 tests
 ├── prompts/                        # Claude API prompts
 ├── templates/                      # Post templates
 ├── .github/workflows/              # CI/CD (pytest, scheduled posts)
@@ -309,7 +349,11 @@ TWILIO_ACCOUNT_SID=ACxxxxxxx
 TWILIO_AUTH_TOKEN=xxxxxxx
 TWILIO_WHATSAPP_FROM=+14155238886
 WHATSAPP_RECIPIENT=+521234567890
-OPENAI_API_KEY=sk-...  # Optional, for DALL-E 3
+OPENAI_API_KEY=sk-...           # Optional, for DALL-E 3
+SMTP_HOST=smtp.gmail.com        # Optional, for email_send tool
+SMTP_PORT=587
+SMTP_USER=tu@gmail.com
+SMTP_PASSWORD=tu_app_password
 ```
 
 ---
@@ -320,7 +364,7 @@ OPENAI_API_KEY=sk-...  # Optional, for DALL-E 3
 python -m pytest tests/ -v
 ```
 
-423 tests covering: core agent, memory, vector search, all 24 tools, post generation, safety, scheduling, browser, voice, image gen, WhatsApp, Twilio, FastAPI, and more.
+598 tests covering: core agent, memory, vector search, all 44 tools, post generation, safety, scheduling, browser, voice, image gen, WhatsApp, Twilio, FastAPI, data viz, CSV analysis, PDF reports, RAG, MCP, workflow triggers, and more.
 
 ---
 
