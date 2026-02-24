@@ -406,6 +406,18 @@ class MikaliaChatBot:
             reply(f"Perdon, tuve un error: {e}")
 
 
+_TOOL_KEYWORDS = {
+    "post", "blog", "commit", "push", "deploy", "pr", "review",
+    "analiza", "analyze", "codigo", "code", "genera", "generate",
+    "crea", "create", "escribe", "write", "ejecuta", "run",
+    "busca", "search", "archivo", "file", "test", "docker",
+    "brief", "goal", "fact", "skill", "tool", "haz", "hazme",
+    "agrega", "add", "actualiza", "update", "borra", "delete",
+    "imagen", "image", "email", "correo", "resumen", "summary",
+    "pomodoro", "gasto", "expense", "habito", "habit",
+}
+
+
 class MikaliaCoreBot:
     """
     Chatbot que usa MikaliaAgent (Core) para responder.
@@ -413,6 +425,9 @@ class MikaliaCoreBot:
     A diferencia de MikaliaChatBot (que es command-based),
     este usa el agent loop completo con memoria, tools,
     y self-improvement.
+
+    Mensajes casuales se rutean a Haiku (barato, rapido).
+    Mensajes que necesitan tools se rutean a Sonnet (completo).
 
     Comandos rapidos (no pasan por el agent loop):
         /start  — Saludo
@@ -445,6 +460,16 @@ class MikaliaCoreBot:
                 logger.info(f"Sesion {self._session_id[:8]}... cerrada limpiamente.")
             except Exception:
                 pass
+
+    @staticmethod
+    def _classify_message(text: str) -> str:
+        """Clasifica mensaje como 'casual' (Haiku) o 'tools' (Sonnet)."""
+        lower = text.lower().strip()
+        if any(kw in lower for kw in _TOOL_KEYWORDS):
+            return "tools"
+        if len(lower) > 150:
+            return "tools"
+        return "casual"
 
     def handle_message(self, text: str, reply):
         """Procesa un mensaje con el agente completo."""
@@ -503,16 +528,28 @@ class MikaliaCoreBot:
             self._cmd_stats(reply)
             return
 
-        # Agent loop completo — con typing indicator continuo
+        # Clasificar: casual → Haiku sin tools, tools → Sonnet completo
+        msg_type = self._classify_message(text)
+        is_casual = msg_type == "casual"
+
         typing_stop = threading.Event()
         typing_thread = self._start_typing_loop(typing_stop)
 
         try:
-            response = self._agent.process_message(
-                message=text,
-                channel="telegram",
-                session_id=self._session_id,
-            )
+            if is_casual:
+                response = self._agent.process_message(
+                    message=text,
+                    channel="telegram",
+                    session_id=self._session_id,
+                    model_override=self._agent._config.mikalia.chat_model,
+                    skip_tools=True,
+                )
+            else:
+                response = self._agent.process_message(
+                    message=text,
+                    channel="telegram",
+                    session_id=self._session_id,
+                )
             self._session_id = self._agent.session_id
 
             typing_stop.set()

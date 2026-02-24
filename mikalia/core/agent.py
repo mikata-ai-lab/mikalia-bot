@@ -71,6 +71,8 @@ class MikaliaAgent:
         message: str,
         channel: str = "cli",
         session_id: str | None = None,
+        model_override: str | None = None,
+        skip_tools: bool = False,
     ) -> str:
         """
         Procesa un mensaje del usuario y retorna la respuesta de Mikalia.
@@ -88,6 +90,8 @@ class MikaliaAgent:
             message: Texto del mensaje del usuario.
             channel: Canal de origen ('cli', 'telegram', etc.)
             session_id: ID de sesion existente (o None para crear nueva).
+            model_override: Modelo alternativo (ej. Haiku para chat casual).
+            skip_tools: Si True, no envia tools a Claude (chat puro).
 
         Returns:
             Texto de la respuesta de Mikalia.
@@ -110,18 +114,20 @@ class MikaliaAgent:
         # que _build_messages() recupera, asi que no lo pasamos como
         # user_message para evitar duplicados
 
-        # 4. Call Claude with tools
+        # 4. Call Claude with tools (or without for casual chat)
+        tools_defs = None if skip_tools else (self._tools.get_tool_definitions() or None)
         response = self._client.chat_with_tools(
             messages=context.messages,
-            tools=self._tools.get_tool_definitions() or None,
+            tools=tools_defs,
             system=context.system_prompt,
             temperature=self._config.mikalia.generation_temperature,
             max_tokens=self._config.mikalia.max_tokens,
+            model_override=model_override,
         )
 
-        # 5. Tool call loop
+        # 5. Tool call loop (skip if casual chat mode)
         rounds = 0
-        while response.has_tool_use and rounds < self.MAX_TOOL_ROUNDS:
+        while not skip_tools and response.has_tool_use and rounds < self.MAX_TOOL_ROUNDS:
             rounds += 1
             logger.info(
                 f"Tool round {rounds}: "
@@ -155,10 +161,11 @@ class MikaliaAgent:
             # Continue conversation
             response = self._client.chat_with_tools(
                 messages=context.messages,
-                tools=self._tools.get_tool_definitions() or None,
+                tools=tools_defs,
                 system=context.system_prompt,
                 temperature=self._config.mikalia.generation_temperature,
                 max_tokens=self._config.mikalia.max_tokens,
+                model_override=model_override,
             )
 
         # 6. Persist assistant response

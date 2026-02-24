@@ -10,6 +10,10 @@ mikalia:
   # claude-sonnet-4-5-20250929 = última versión, mejor calidad
   model: "claude-sonnet-4-5-20250929"
 
+  # Modelo para chat casual (Telegram plática, sin tools)
+  # Haiku es ~4x más barato que Sonnet, ideal para conversación
+  chat_model: "claude-haiku-4-5-20251001"
+
   # Tokens máximos por respuesta (4096 ≈ ~3000 palabras)
   max_tokens: 4096
 

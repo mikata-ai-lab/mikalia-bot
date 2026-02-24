@@ -45,6 +45,7 @@ from dotenv import load_dotenv
 class MikaliaConfig:
     """Configuración del modelo y generación de contenido."""
     model: str = "claude-sonnet-4-5-20250929"
+    chat_model: str = "claude-haiku-4-5-20251001"
     max_tokens: int = 4096
     generation_temperature: float = 0.7
     review_temperature: float = 0.3

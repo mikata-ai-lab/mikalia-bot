@@ -276,6 +276,7 @@ class MikaliaClient:
         system: str | None = None,
         temperature: float = 0.7,
         max_tokens: int = 4096,
+        model_override: str | None = None,
     ) -> APIResponse:
         """
         Chat con soporte para tool_use de Claude.
@@ -300,7 +301,7 @@ class MikaliaClient:
         for intento in range(self._max_retries):
             try:
                 kwargs: dict[str, Any] = {
-                    "model": self._model,
+                    "model": model_override or self._model,
                     "max_tokens": max_tokens,
                     "temperature": temperature,
                     "system": system_prompt,
