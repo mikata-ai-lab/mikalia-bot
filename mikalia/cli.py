@@ -32,6 +32,7 @@ Uso:
 
 from __future__ import annotations
 
+import os
 import sys
 
 import click
@@ -493,6 +494,42 @@ def _show_facts(agent):
     for f in facts[:15]:
         tabla.add_row(f["category"], f["subject"], f["fact"][:80])
     rich_console.print(tabla)
+
+
+@main.command(name="discord")
+def discord_cmd():
+    """Mikalia en Discord — Agente autonomo en tu server."""
+    rich_console.print(BANNER)
+    logger.mikalia("Mikalia Discord activado.")
+
+    try:
+        from mikalia.core.agent import MikaliaAgent
+        from mikalia.notifications.discord_listener import DiscordListener
+        from mikalia.notifications.telegram_listener import MikaliaCoreBot
+
+        cfg = load_config()
+        agent = MikaliaAgent(config=cfg)
+
+        bot_token = os.environ.get("DISCORD_BOT_TOKEN", "")
+        channel_id = os.environ.get("DISCORD_CHANNEL_ID", "")
+
+        if not bot_token or not channel_id:
+            rich_console.print("[red]Falta DISCORD_BOT_TOKEN o DISCORD_CHANNEL_ID en .env[/red]")
+            return
+
+        listener = DiscordListener(bot_token, int(channel_id))
+        core_bot = MikaliaCoreBot(agent)
+
+        listener._on_message = core_bot.handle_message
+        logger.mikalia("Escuchando en Discord...")
+        listener.listen()
+
+    except ImportError as e:
+        rich_console.print(f"[red]Falta dependencia: {e}. Instala discord.py[/red]")
+    except KeyboardInterrupt:
+        pass
+
+    logger.mikalia("Discord desconectado.")
 
 
 @main.command()

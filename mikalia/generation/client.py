@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Generator
 
 import anthropic
 from rich.console import Console
@@ -345,6 +345,84 @@ class MikaliaClient:
                     stop_reason=response.stop_reason,
                     tool_calls=tool_calls,
                     raw_content=raw_content,
+                )
+
+            except anthropic.RateLimitError as e:
+                ultimo_error = e
+                tiempo_espera = (2 ** intento) * 2
+                time.sleep(tiempo_espera)
+
+            except anthropic.APIStatusError as e:
+                ultimo_error = e
+                if e.status_code >= 500:
+                    time.sleep(2 ** intento)
+                else:
+                    raise
+
+            except anthropic.APIConnectionError as e:
+                ultimo_error = e
+                time.sleep(2 ** intento)
+
+        raise ultimo_error  # type: ignore[misc]
+
+    def chat_stream(
+        self,
+        messages: list[dict],
+        system: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int = 4096,
+        model_override: str | None = None,
+    ) -> Generator[str, None, APIResponse]:
+        """
+        Chat con streaming de respuesta (sin soporte de tools).
+
+        Usa el context manager ``messages.stream()`` del SDK de Anthropic
+        para entregar fragmentos de texto conforme llegan.  Al finalizar
+        el stream se construye y retorna un ``APIResponse`` con el uso
+        de tokens.
+
+        Diseñado para conversaciones casuales donde no se necesitan
+        herramientas y se quiere feedback inmediato al usuario.
+
+        Args:
+            messages: Lista de mensajes en formato Claude API.
+            system: System prompt (override).
+            temperature: Creatividad.
+            max_tokens: Limite de respuesta.
+            model_override: Modelo alternativo (ej. Haiku).
+
+        Yields:
+            Fragmentos de texto conforme llegan del stream.
+
+        Returns:
+            APIResponse con contenido completo y uso de tokens.
+        """
+        system_prompt = system or self._system_prompt
+        ultimo_error: Exception | None = None
+
+        for intento in range(self._max_retries):
+            try:
+                with self._client.messages.stream(
+                    model=model_override or self._model,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    system=system_prompt,
+                    messages=messages,
+                ) as stream:
+                    collected: list[str] = []
+                    for chunk in stream.text_stream:
+                        collected.append(chunk)
+                        yield chunk
+
+                    # Stream completado — obtener mensaje final
+                    final = stream.get_final_message()
+
+                return APIResponse(
+                    content="".join(collected),
+                    model=final.model,
+                    input_tokens=final.usage.input_tokens,
+                    output_tokens=final.usage.output_tokens,
+                    stop_reason=final.stop_reason,
                 )
 
             except anthropic.RateLimitError as e:

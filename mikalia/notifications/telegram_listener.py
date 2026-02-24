@@ -26,6 +26,7 @@ from __future__ import annotations
 import re
 import threading
 import time
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -121,6 +122,60 @@ class TelegramListener:
             logger.error(f"Error enviando mensaje: {e}")
             return False
 
+    def send_and_edit(self, initial_text: str) -> int | None:
+        """
+        Envia un mensaje inicial y retorna su message_id para editarlo despues.
+
+        Util para streaming: se envia un primer fragmento y luego se actualiza
+        conforme llegan mas datos.
+
+        Args:
+            initial_text: Texto del mensaje inicial.
+
+        Returns:
+            message_id del mensaje enviado, o None si fallo.
+        """
+        url = f"{self._api_url}/sendMessage"
+        payload = {
+            "chat_id": self._chat_id,
+            "text": initial_text,
+            "parse_mode": "HTML",
+        }
+        try:
+            resp = requests.post(url, json=payload, timeout=10)
+            data = resp.json()
+            if data.get("ok"):
+                return data["result"]["message_id"]
+            return None
+        except Exception as e:
+            logger.error(f"Error en send_and_edit: {e}")
+            return None
+
+    def edit_message(self, message_id: int, new_text: str) -> bool:
+        """
+        Edita un mensaje existente por su message_id.
+
+        Args:
+            message_id: ID del mensaje a editar.
+            new_text: Nuevo texto del mensaje.
+
+        Returns:
+            True si la edicion fue exitosa.
+        """
+        url = f"{self._api_url}/editMessageText"
+        payload = {
+            "chat_id": self._chat_id,
+            "message_id": message_id,
+            "text": new_text,
+            "parse_mode": "HTML",
+        }
+        try:
+            resp = requests.post(url, json=payload, timeout=10)
+            return resp.json().get("ok", False)
+        except Exception as e:
+            logger.error(f"Error editando mensaje: {e}")
+            return False
+
     def send_typing(self) -> None:
         """Envia indicador de 'typing...' al chat."""
         url = f"{self._api_url}/sendChatAction"
@@ -192,26 +247,80 @@ class TelegramListener:
             logger.error(f"Error obteniendo updates: {e}")
             return []
 
+    def send_voice(self, audio_path: str) -> bool:
+        """Envia un archivo de audio como mensaje de voz."""
+        url = f"{self._api_url}/sendVoice"
+        try:
+            with open(audio_path, "rb") as f:
+                resp = requests.post(
+                    url,
+                    data={"chat_id": self._chat_id},
+                    files={"voice": f},
+                    timeout=30,
+                )
+            return resp.json().get("ok", False)
+        except Exception as e:
+            logger.error(f"Error enviando voz: {e}")
+            return False
+
+    def _download_voice(self, file_id: str) -> str | None:
+        """Descarga un voice message de Telegram y retorna path local."""
+        try:
+            # Obtener file_path del server
+            url = f"{self._api_url}/getFile"
+            resp = requests.get(url, params={"file_id": file_id}, timeout=10)
+            data = resp.json()
+            if not data.get("ok"):
+                return None
+
+            file_path = data["result"]["file_path"]
+            download_url = f"https://api.telegram.org/file/bot{self._bot_token}/{file_path}"
+
+            # Descargar archivo
+            voice_dir = Path("data/voice")
+            voice_dir.mkdir(parents=True, exist_ok=True)
+            local_path = voice_dir / f"telegram_{int(time.time())}.ogg"
+
+            audio_resp = requests.get(download_url, timeout=30)
+            local_path.write_bytes(audio_resp.content)
+
+            return str(local_path)
+        except Exception as e:
+            logger.error(f"Error descargando voice: {e}")
+            return None
+
     def _process_update(self, update: dict):
-        """Procesa un update de Telegram."""
+        """Procesa un update de Telegram (texto o voz)."""
         message = update.get("message")
         if not message:
             return
 
         chat_id = str(message.get("chat", {}).get("id", ""))
-        text = message.get("text", "").strip()
 
         # Solo procesar mensajes del chat autorizado
         if chat_id != self._chat_id:
             logger.warning(f"Mensaje ignorado de chat no autorizado: {chat_id}")
             return
 
+        # Voice message
+        voice = message.get("voice")
+        if voice and self._on_message:
+            file_id = voice.get("file_id", "")
+            logger.info(f"Voice message recibido ({voice.get('duration', 0)}s)")
+            audio_path = self._download_voice(file_id)
+            if audio_path:
+                self._on_message(audio_path, self.send, voice=True)
+            else:
+                self.send("No pude descargar el audio, intenta de nuevo~")
+            return
+
+        # Text message
+        text = message.get("text", "").strip()
         if not text:
             return
 
         logger.info(f"Mensaje recibido: {text}")
 
-        # Llamar al callback si existe
         if self._on_message:
             self._on_message(text, self.send)
 
@@ -235,7 +344,7 @@ class MikaliaChatBot:
         self._last_post = None  # Último post generado (para confirmar)
         self._awaiting_confirm = False
 
-    def handle_message(self, text: str, reply):
+    def handle_message(self, text: str, reply, voice: bool = False):
         """
         Procesa un mensaje y responde.
 
@@ -443,11 +552,14 @@ class MikaliaCoreBot:
         listener: TelegramListener para enviar typing indicator.
     """
 
+    STREAM_EDIT_INTERVAL = 1.5  # Segundos entre ediciones del mensaje
+
     def __init__(self, agent, listener=None) -> None:
         from mikalia.core.agent import MikaliaAgent
         self._agent: MikaliaAgent = agent
         self._listener = listener
         self._session_id: str | None = self._resume_session()
+        self._last_stream_sent: bool = False
 
     def shutdown(self) -> None:
         """Cierre limpio: finaliza la sesion en memoria."""
@@ -471,8 +583,47 @@ class MikaliaCoreBot:
             return "tools"
         return "casual"
 
-    def handle_message(self, text: str, reply):
+    def _transcribe_voice(self, audio_path: str) -> str | None:
+        """Transcribe audio con SpeechToTextTool."""
+        try:
+            from mikalia.tools.voice import SpeechToTextTool
+            stt = SpeechToTextTool()
+            result = stt.execute(audio_path=audio_path)
+            if result.success:
+                return result.output
+            logger.error(f"STT error: {result.error}")
+            return None
+        except Exception as e:
+            logger.error(f"Error en transcripcion: {e}")
+            return None
+
+    def _send_voice_response(self, text: str) -> None:
+        """Genera audio TTS y lo envia por Telegram."""
+        try:
+            from mikalia.tools.voice import TextToSpeechTool
+            tts = TextToSpeechTool()
+            result = tts.execute(text=text[:500])  # Limitar para TTS
+            if result.success and self._listener:
+                # El output contiene el path del MP3
+                audio_path = result.output.strip()
+                if Path(audio_path).exists():
+                    self._listener.send_voice(audio_path)
+                    return
+            logger.warning("TTS fallo, respuesta solo texto")
+        except Exception as e:
+            logger.error(f"Error generando voz: {e}")
+
+    def handle_message(self, text: str, reply, voice: bool = False):
         """Procesa un mensaje con el agente completo."""
+        # Si es voice message, transcribir primero
+        if voice:
+            transcribed = self._transcribe_voice(text)  # text es audio_path
+            if not transcribed:
+                reply("No pude entender el audio, intenta de nuevo~")
+                return
+            logger.info(f"Transcripcion: {transcribed[:80]}...")
+            text = transcribed
+
         text_lower = text.lower().strip()
 
         # Comandos rapidos (no usan API)
@@ -537,13 +688,16 @@ class MikaliaCoreBot:
 
         try:
             if is_casual:
-                response = self._agent.process_message(
-                    message=text,
-                    channel="telegram",
-                    session_id=self._session_id,
-                    model_override=self._agent._config.mikalia.chat_model,
-                    skip_tools=True,
-                )
+                response = self._try_stream(text, reply)
+                if response is None:
+                    # Fallback a no-streaming
+                    response = self._agent.process_message(
+                        message=text,
+                        channel="telegram",
+                        session_id=self._session_id,
+                        model_override=self._agent._config.mikalia.chat_model,
+                        skip_tools=True,
+                    )
             else:
                 response = self._agent.process_message(
                     message=text,
@@ -556,7 +710,12 @@ class MikaliaCoreBot:
             if typing_thread:
                 typing_thread.join(timeout=1)
 
-            self._send_response(response, reply)
+            # Responder con voz si el mensaje original era voz
+            if voice:
+                self._send_voice_response(response)
+            # Si streaming ya envio la respuesta, no reenviar
+            if not (is_casual and self._last_stream_sent):
+                self._send_response(response, reply)
 
         except Exception as e:
             typing_stop.set()
@@ -564,6 +723,75 @@ class MikaliaCoreBot:
                 typing_thread.join(timeout=1)
             logger.error(f"Error en MikaliaCoreBot: {e}")
             reply(f"Perdon, tuve un error procesando eso: {e}")
+
+    def _try_stream(self, text: str, reply) -> str | None:
+        """
+        Intenta enviar la respuesta con streaming via edicion de mensaje.
+
+        Envia un mensaje inicial con el primer fragmento y luego edita
+        el mensaje cada ``STREAM_EDIT_INTERVAL`` segundos con el texto
+        acumulado.
+
+        Args:
+            text: Mensaje del usuario.
+            reply: Funcion para enviar respuestas (fallback).
+
+        Returns:
+            Texto completo de la respuesta si streaming funciono,
+            o None si fallo (para que el caller haga fallback).
+        """
+        self._last_stream_sent = False
+
+        if not self._listener:
+            return None
+
+        try:
+            gen = self._agent.process_message_stream(
+                message=text,
+                channel="telegram",
+                session_id=self._session_id,
+                model_override=self._agent._config.mikalia.chat_model,
+            )
+
+            accumulated = ""
+            message_id: int | None = None
+            last_edit = 0.0
+
+            for chunk in gen:
+                accumulated += chunk
+
+                now = time.time()
+
+                # Enviar mensaje inicial con el primer fragmento
+                if message_id is None and len(accumulated) >= 10:
+                    clean = _markdown_to_telegram(accumulated)
+                    message_id = self._listener.send_and_edit(clean)
+                    last_edit = now
+                    continue
+
+                # Editar cada STREAM_EDIT_INTERVAL segundos
+                if message_id is not None and (now - last_edit) >= self.STREAM_EDIT_INTERVAL:
+                    clean = _markdown_to_telegram(accumulated)
+                    self._listener.edit_message(message_id, clean)
+                    last_edit = now
+
+            # Edicion final con el texto completo
+            if message_id is not None:
+                clean = _markdown_to_telegram(accumulated)
+                self._listener.edit_message(message_id, clean)
+                self._last_stream_sent = True
+            elif accumulated:
+                # Si nunca se envio el mensaje inicial (texto muy corto)
+                clean = _markdown_to_telegram(accumulated)
+                reply(clean)
+                self._last_stream_sent = True
+
+            self._session_id = self._agent.session_id
+            return accumulated
+
+        except Exception as e:
+            logger.warning(f"Streaming fallo, usando fallback: {e}")
+            return None
 
     def _resume_session(self) -> str | None:
         """Intenta retomar la ultima sesion de Telegram."""
@@ -653,8 +881,13 @@ class MikaliaCoreBot:
         except Exception as e:
             reply(f"Error listando facts: {e}")
 
+    @staticmethod
+    def _estimate_cost(tokens: int) -> float:
+        """Estima costo USD basado en tokens (promedio $8/1M tokens)."""
+        return tokens * 8 / 1_000_000
+
     def _cmd_stats(self, reply):
-        """Muestra uso de tokens y estadisticas."""
+        """Muestra uso de tokens, costos y estadisticas."""
         try:
             mem = self._agent.memory
 
@@ -663,15 +896,17 @@ class MikaliaCoreBot:
             if self._session_id:
                 session_stats = mem.get_session_stats(self._session_id)
 
-            # Stats de 24h
+            # Stats por periodo
             daily = mem.get_token_usage(hours=24)
+            weekly = mem.get_token_usage(hours=168)
+            monthly = mem.get_token_usage(hours=720)
 
-            # Costo estimado (Sonnet 4.5: ~$3/1M input, ~$15/1M output)
-            # Estimacion conservadora: ~$8/1M tokens promedio
-            cost_est = daily["total_tokens"] * 8 / 1_000_000
+            cost_daily = self._estimate_cost(daily["total_tokens"])
+            cost_weekly = self._estimate_cost(weekly["total_tokens"])
+            cost_monthly = self._estimate_cost(monthly["total_tokens"])
 
             lines = [
-                "<b>Estadisticas de uso:</b>\n",
+                "<b>Estadisticas de uso</b>\n",
                 "<b>Sesion actual:</b>",
                 f"  Mensajes: {session_stats['total_messages']}",
                 f"  Tokens: {session_stats['total_tokens']:,}",
@@ -680,7 +915,17 @@ class MikaliaCoreBot:
                 f"  Sesiones: {daily['sessions']}",
                 f"  Mensajes: {daily['total_messages']}",
                 f"  Tokens: {daily['total_tokens']:,}",
-                f"  Costo est: ~${cost_est:.3f} USD",
+                f"  Costo: ~${cost_daily:.2f} USD",
+                "",
+                "<b>Ultimos 7 dias:</b>",
+                f"  Sesiones: {weekly['sessions']}",
+                f"  Tokens: {weekly['total_tokens']:,}",
+                f"  Costo: ~${cost_weekly:.2f} USD",
+                "",
+                "<b>Ultimos 30 dias:</b>",
+                f"  Sesiones: {monthly['sessions']}",
+                f"  Tokens: {monthly['total_tokens']:,}",
+                f"  Costo: ~${cost_monthly:.2f} USD",
             ]
             reply("\n".join(lines))
         except Exception as e:

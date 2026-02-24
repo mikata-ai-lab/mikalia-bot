@@ -120,6 +120,10 @@ telegram:
     - "review_needed"
     - "error"
 
+discord:
+  # Activar bot de Discord
+  enabled: false
+
 notifications:
   # Formato de mensajes de Telegram
   post_published: "🌸 ¡Nuevo post publicado!\n📝 {title}\n🔗 {url}"

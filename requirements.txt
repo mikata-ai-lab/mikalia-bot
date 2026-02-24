@@ -42,6 +42,9 @@ fpdf2>=2.7.0               # Generacion de PDFs (puro Python, ligera)
 # --- Telegram ---
 python-telegram-bot>=21.0  # SDK de Telegram Bot API
 
+# --- Discord ---
+discord.py>=2.0            # Discord bot (canal alternativo a Telegram)
+
 # --- UX & Logging ---
 rich>=13.0.0               # Output bonito en terminal (colores, spinners, tablas)
 click>=8.1.0               # CLI framework (alternativa más moderna a argparse)

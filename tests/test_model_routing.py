@@ -82,9 +82,24 @@ class TestModelRouting:
         bot._session_id = "test-session"
         return bot, agent
 
-    def test_casual_uses_haiku(self):
-        """Mensaje casual llama a process_message con model_override=haiku."""
+    def test_casual_tries_stream_first(self):
+        """Mensaje casual intenta streaming primero (process_message_stream)."""
         bot, agent = self._make_bot()
+
+        bot.handle_message("hola que tal", MagicMock())
+
+        # Casual messages try streaming first via process_message_stream
+        agent.process_message_stream.assert_called_once_with(
+            message="hola que tal",
+            channel="telegram",
+            session_id="test-session",
+            model_override="claude-haiku-4-5-20251001",
+        )
+
+    def test_casual_falls_back_to_process_message(self):
+        """Si streaming falla, casual cae a process_message."""
+        bot, agent = self._make_bot()
+        agent.process_message_stream.side_effect = Exception("stream error")
 
         bot.handle_message("hola que tal", MagicMock())
 

@@ -16,6 +16,7 @@ Uso:
 from __future__ import annotations
 
 import json
+from typing import Generator
 
 from mikalia.config import AppConfig, load_config
 from mikalia.core.context import ContextBuilder
@@ -184,6 +185,84 @@ class MikaliaAgent:
             f"{rounds} tool rounds)"
         )
         return response.content
+
+    def process_message_stream(
+        self,
+        message: str,
+        channel: str = "cli",
+        session_id: str | None = None,
+        model_override: str | None = None,
+    ) -> Generator[str, None, None]:
+        """
+        Procesa un mensaje del usuario con streaming de respuesta.
+
+        Mismo flujo de sesion y memoria que ``process_message()`` pero
+        usa ``chat_stream()`` para entregar fragmentos conforme llegan.
+        No soporta tools (diseñado para chat casual).
+
+        Al finalizar el generador, la respuesta completa se persiste
+        en memoria.
+
+        Args:
+            message: Texto del mensaje del usuario.
+            channel: Canal de origen ('cli', 'telegram', etc.)
+            session_id: ID de sesion existente (o None para crear nueva).
+            model_override: Modelo alternativo (ej. Haiku para chat casual).
+
+        Yields:
+            Fragmentos de texto conforme llegan del LLM.
+        """
+        # 1. Session
+        if session_id is None:
+            session_id = self._memory.create_session(channel)
+        self._current_session = session_id
+
+        # 2. Persist user message
+        self._memory.add_message(session_id, channel, "user", message)
+
+        # 3. Build context
+        context = self._context_builder.build(
+            session_id=session_id,
+            channel=channel,
+        )
+
+        # 4. Stream response (sin tools)
+        gen = self._client.chat_stream(
+            messages=context.messages,
+            system=context.system_prompt,
+            temperature=self._config.mikalia.generation_temperature,
+            max_tokens=self._config.mikalia.max_tokens,
+            model_override=model_override,
+        )
+
+        # 5. Yield chunks y capturar respuesta final
+        full_text: list[str] = []
+        api_response = None
+        try:
+            while True:
+                chunk = next(gen)
+                full_text.append(chunk)
+                yield chunk
+        except StopIteration as stop:
+            api_response = stop.value
+
+        # 6. Persist assistant response
+        final_content = "".join(full_text)
+        tokens_used = 0
+        if api_response is not None:
+            tokens_used = api_response.input_tokens + api_response.output_tokens
+
+        self._memory.add_message(
+            session_id,
+            channel,
+            "assistant",
+            final_content,
+            tokens_used=tokens_used,
+        )
+
+        logger.info(
+            f"Stream completado ({tokens_used} tokens totales)"
+        )
 
     def _execute_tool(self, tool_call: dict) -> ToolResult:
         """Ejecuta un tool call y retorna el resultado."""
