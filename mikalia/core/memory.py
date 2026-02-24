@@ -423,6 +423,27 @@ class MemoryManager:
         finally:
             conn.close()
 
+    def clear_session_messages(self, session_id: str) -> int:
+        """
+        Borra todos los mensajes de una sesion.
+
+        Args:
+            session_id: UUID de la sesion.
+
+        Returns:
+            Numero de mensajes eliminados.
+        """
+        conn = self._get_connection()
+        try:
+            cursor = conn.execute(
+                "DELETE FROM conversations WHERE session_id = ?",
+                (session_id,),
+            )
+            conn.commit()
+            return cursor.rowcount
+        finally:
+            conn.close()
+
     def get_session(self, session_id: str) -> dict | None:
         """Obtiene metadata de una sesion."""
         conn = self._get_connection()

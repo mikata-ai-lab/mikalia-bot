@@ -13,6 +13,7 @@
     const messagesEl = document.getElementById('messages');
     const inputEl = document.getElementById('message-input');
     const sendBtn = document.getElementById('send-btn');
+    const clearBtn = document.getElementById('clear-btn');
     const form = inputEl.closest('form');
     const statusDot = document.querySelector('.header__status');
 
@@ -270,10 +271,34 @@
         }
     }
 
+    // === Clear History ===
+    async function clearHistory() {
+        if (!sessionId) return;
+        if (!confirm('Borrar todo el historial de esta conversación?')) return;
+
+        try {
+            await fetch('/api/chat/history?session_id=' + encodeURIComponent(sessionId), {
+                method: 'DELETE',
+            });
+        } catch (_) {
+            // Best-effort — clear UI regardless
+        }
+
+        // Clear UI
+        messagesEl.innerHTML = '';
+        addMessage('assistant', 'Historial borrado. Empecemos de nuevo~ ✨');
+
+        // New session
+        sessionId = null;
+        localStorage.removeItem(STORAGE_KEY);
+        inputEl.focus();
+    }
+
     // === Init ===
     function init() {
         form.addEventListener('submit', handleSubmit);
         inputEl.addEventListener('keydown', handleKeydown);
+        if (clearBtn) clearBtn.addEventListener('click', clearHistory);
         setupAutoScroll();
         setupTextarea();
         setStatus('connected');

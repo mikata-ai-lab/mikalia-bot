@@ -83,10 +83,12 @@ class TestPollinations:
         tool = ImageGenerationTool()
         with patch("mikalia.tools.image_gen.IMAGE_DIR", Path("/tmp/test_img")):
             with patch("pathlib.Path.mkdir"):
-                result = tool.execute(prompt="test image")
+                result = tool._generate_pollinations(
+                    "test image", "1024x1024", Path("/tmp/test_img/out.png"),
+                )
 
         assert not result.success
-        assert "Timeout" in result.error
+        assert "Timeout" in result.error or "no disponible" in result.error
 
     @patch("mikalia.tools.image_gen.requests.get")
     def test_pollinations_small_file(self, mock_get, tmp_path):
@@ -98,14 +100,15 @@ class TestPollinations:
 
         tool = ImageGenerationTool()
         with patch("mikalia.tools.image_gen.IMAGE_DIR", tmp_path):
-            result = tool.execute(prompt="test")
+            result = tool._generate_pollinations(
+                "test", "1024x1024", tmp_path / "out.png",
+            )
 
         assert not result.success
-        assert "pequena" in result.error.lower()
 
     @patch("mikalia.tools.image_gen.requests.get")
     def test_pollinations_custom_size(self, mock_get, tmp_path):
-        """Pollinations respeta el tamano personalizado."""
+        """Pollinations respeta el tamano personalizado en primera URL."""
         fake_png = b"\x89PNG" + b"\x00" * 5000
         mock_resp = MagicMock()
         mock_resp.iter_content.return_value = [fake_png]
@@ -116,9 +119,65 @@ class TestPollinations:
         with patch("mikalia.tools.image_gen.IMAGE_DIR", tmp_path):
             tool.execute(prompt="test", size="1792x1024")
 
-        call_url = mock_get.call_args[0][0]
-        assert "width=1792" in call_url
-        assert "height=1024" in call_url
+        # First call should have custom size params
+        first_call_url = mock_get.call_args_list[0][0][0]
+        assert "width=1792" in first_call_url
+        assert "height=1024" in first_call_url
+
+    @patch("mikalia.tools.image_gen.time.sleep")
+    @patch("mikalia.tools.image_gen.requests.get")
+    def test_pollinations_retry_on_error(self, mock_get, mock_sleep, tmp_path):
+        """Pollinations reintenta tras error HTTP."""
+        import requests as req
+        fake_png = b"\x89PNG" + b"\x00" * 5000
+        ok_resp = MagicMock()
+        ok_resp.iter_content.return_value = [fake_png]
+        ok_resp.raise_for_status = MagicMock()
+
+        # Fail twice, succeed on third
+        mock_get.side_effect = [
+            req.ConnectionError("530"),
+            req.ConnectionError("530"),
+            ok_resp,
+        ]
+
+        tool = ImageGenerationTool()
+        with patch("mikalia.tools.image_gen.IMAGE_DIR", tmp_path):
+            result = tool._generate_pollinations(
+                "test", "1024x1024", tmp_path / "out.png",
+            )
+
+        assert result.success
+        assert mock_get.call_count == 3
+
+    @patch("mikalia.tools.image_gen.time.sleep")
+    @patch("mikalia.tools.image_gen.requests.get")
+    def test_pollinations_fallback_url_without_params(self, mock_get, mock_sleep, tmp_path):
+        """Si URL con params falla, prueba sin params."""
+        import requests as req
+        fake_png = b"\x89PNG" + b"\x00" * 5000
+        ok_resp = MagicMock()
+        ok_resp.iter_content.return_value = [fake_png]
+        ok_resp.raise_for_status = MagicMock()
+
+        # All 3 retries with params fail, first without params succeeds
+        mock_get.side_effect = [
+            req.ConnectionError("530"),
+            req.ConnectionError("530"),
+            req.ConnectionError("530"),
+            ok_resp,
+        ]
+
+        tool = ImageGenerationTool()
+        with patch("mikalia.tools.image_gen.IMAGE_DIR", tmp_path):
+            result = tool._generate_pollinations(
+                "test", "1024x1024", tmp_path / "out.png",
+            )
+
+        assert result.success
+        # Last successful call should be the URL without params
+        last_url = mock_get.call_args_list[-1][0][0]
+        assert "width=" not in last_url
 
 
 class TestDALLE:
@@ -187,6 +246,63 @@ class TestDALLE:
 
         payload = mock_post.call_args.kwargs["json"]
         assert payload["size"] == "1024x1024"
+
+
+class TestAutoFallback:
+    @patch("mikalia.tools.image_gen.time.sleep")
+    @patch("mikalia.tools.image_gen.requests.get")
+    @patch("mikalia.tools.image_gen.requests.post")
+    def test_fallback_to_dalle_when_pollinations_fails(
+        self, mock_post, mock_get, mock_sleep, tmp_path,
+    ):
+        """Si Pollinations falla y hay OPENAI_API_KEY, cae a DALL-E."""
+        import requests as req
+
+        fake_png = b"\x89PNG" + b"\x00" * 5000
+
+        # Pollinations always fails
+        mock_get.side_effect = req.ConnectionError("530 all the time")
+
+        # DALL-E succeeds
+        mock_post.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {
+                "data": [{"url": "https://x.com/img.png", "revised_prompt": "test"}],
+            },
+        )
+        mock_post.return_value.raise_for_status = MagicMock()
+
+        tool = ImageGenerationTool()
+        with patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test"}):
+            with patch("mikalia.tools.image_gen.IMAGE_DIR", tmp_path):
+                # Mock get for image download from DALL-E URL
+                def smart_get(url, **kwargs):
+                    if "openai" not in url and "x.com" not in url:
+                        raise req.ConnectionError("530")
+                    resp = MagicMock(content=fake_png, status_code=200)
+                    resp.raise_for_status = MagicMock()
+                    return resp
+
+                mock_get.side_effect = smart_get
+                result = tool.execute(prompt="test image")
+
+        assert result.success
+        assert "DALL-E" in result.output
+
+    @patch("mikalia.tools.image_gen.time.sleep")
+    @patch("mikalia.tools.image_gen.requests.get")
+    def test_no_fallback_without_api_key(self, mock_get, mock_sleep, tmp_path):
+        """Sin OPENAI_API_KEY, no hay fallback a DALL-E."""
+        import requests as req
+        mock_get.side_effect = req.ConnectionError("530")
+
+        tool = ImageGenerationTool()
+        with patch.dict("os.environ", {}, clear=True):
+            with patch("mikalia.tools.image_gen.IMAGE_DIR", tmp_path):
+                result = tool.execute(prompt="test")
+
+        assert not result.success
+        assert "no disponible" in result.error.lower()
 
 
 class TestProviders:

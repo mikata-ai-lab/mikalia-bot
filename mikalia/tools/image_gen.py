@@ -106,53 +106,71 @@ class ImageGenerationTool(BaseTool):
 
         if provider == "dalle":
             return self._generate_dalle(prompt, size, output_path)
-        else:
-            return self._generate_pollinations(prompt, size, output_path)
+
+        # Pollinations con retry, auto-fallback a DALL-E si hay key
+        result = self._generate_pollinations(prompt, size, output_path)
+        if not result.success and os.environ.get("OPENAI_API_KEY"):
+            logger.info("Pollinations fallo, intentando DALL-E como fallback...")
+            result = self._generate_dalle(prompt, size, output_path)
+        return result
 
     def _generate_pollinations(
         self, prompt: str, size: str, output_path: Path,
     ) -> ToolResult:
-        """Genera imagen con Pollinations.ai (gratis)."""
+        """Genera imagen con Pollinations.ai (gratis) con retry."""
         width, height = size.split("x")
         encoded_prompt = quote(prompt)
-        url = (
-            f"https://image.pollinations.ai/prompt/{encoded_prompt}"
-            f"?width={width}&height={height}&nologo=true"
+
+        # Try with params first, then without (bare URL is more reliable)
+        urls = [
+            (
+                f"https://image.pollinations.ai/prompt/{encoded_prompt}"
+                f"?width={width}&height={height}&nologo=true"
+            ),
+            f"https://image.pollinations.ai/prompt/{encoded_prompt}",
+        ]
+
+        last_error = None
+        for attempt, url in enumerate(urls):
+            for retry in range(3):
+                try:
+                    resp = requests.get(url, timeout=60, stream=True)
+                    resp.raise_for_status()
+
+                    with open(output_path, "wb") as f:
+                        for chunk in resp.iter_content(chunk_size=8192):
+                            f.write(chunk)
+
+                    file_size = output_path.stat().st_size
+                    if file_size < 1000:
+                        last_error = "Imagen muy pequena, posible error del provider"
+                        break  # Try next URL variant
+
+                    logger.success(
+                        f"Imagen generada: {output_path} ({file_size:,} bytes)"
+                    )
+                    return ToolResult(
+                        success=True,
+                        output=(
+                            f"Imagen generada: {output_path}\n"
+                            f"Provider: Pollinations.ai (gratis)\n"
+                            f"Size: {size}\n"
+                            f"File: {file_size:,} bytes\n"
+                            f"Prompt: {prompt[:100]}{'...' if len(prompt) > 100 else ''}"
+                        ),
+                    )
+                except requests.Timeout:
+                    last_error = "Timeout (60s)"
+                    break  # Don't retry timeouts, try next URL
+                except requests.RequestException as e:
+                    last_error = str(e)
+                    if retry < 2:
+                        time.sleep(2 * (retry + 1))  # 2s, 4s backoff
+
+        return ToolResult(
+            success=False,
+            error=f"Pollinations no disponible tras varios intentos: {last_error}",
         )
-
-        try:
-            resp = requests.get(url, timeout=60, stream=True)
-            resp.raise_for_status()
-
-            with open(output_path, "wb") as f:
-                for chunk in resp.iter_content(chunk_size=8192):
-                    f.write(chunk)
-
-            file_size = output_path.stat().st_size
-            if file_size < 1000:
-                return ToolResult(
-                    success=False,
-                    error="Imagen generada muy pequena, posible error del provider",
-                )
-
-            logger.success(f"Imagen generada: {output_path} ({file_size:,} bytes)")
-            return ToolResult(
-                success=True,
-                output=(
-                    f"Imagen generada: {output_path}\n"
-                    f"Provider: Pollinations.ai (gratis)\n"
-                    f"Size: {size}\n"
-                    f"File: {file_size:,} bytes\n"
-                    f"Prompt: {prompt[:100]}{'...' if len(prompt) > 100 else ''}"
-                ),
-            )
-        except requests.Timeout:
-            return ToolResult(
-                success=False,
-                error="Timeout generando imagen (60s). Intenta con un prompt mas simple.",
-            )
-        except requests.RequestException as e:
-            return ToolResult(success=False, error=f"Error generando imagen: {e}")
 
     def _generate_dalle(
         self, prompt: str, size: str, output_path: Path,

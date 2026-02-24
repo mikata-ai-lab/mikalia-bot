@@ -82,12 +82,41 @@ body {
     letter-spacing: 0.02em;
 }
 
+.header__clear {
+    margin-left: auto;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    width: 36px;
+    height: 36px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.header__clear:hover {
+    border-color: var(--error);
+    background: rgba(231, 76, 60, 0.1);
+}
+
+.header__clear svg {
+    width: 18px;
+    height: 18px;
+    fill: var(--text-secondary);
+    transition: fill 0.2s ease;
+}
+
+.header__clear:hover svg {
+    fill: var(--error);
+}
+
 .header__status {
     width: 8px;
     height: 8px;
     border-radius: 50%;
     background: #4caf50;
-    margin-left: auto;
     flex-shrink: 0;
     transition: background 0.3s ease;
 }

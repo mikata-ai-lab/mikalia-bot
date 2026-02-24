@@ -219,6 +219,40 @@ class TestChatHistory:
         data = resp.json()
         assert data["messages"] == []
 
+    def test_delete_history(self, client, memory):
+        """DELETE /api/chat/history borra mensajes de la sesion."""
+        session_id = memory.create_session("web")
+        memory.add_message(session_id, "web", "user", "hola")
+        memory.add_message(session_id, "web", "assistant", "hey!")
+
+        resp = client.delete(f"/api/chat/history?session_id={session_id}")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["deleted"] == 2
+        assert data["session_id"] == session_id
+
+        # Verify history is empty now
+        resp2 = client.get(f"/api/chat/history?session_id={session_id}")
+        assert resp2.json()["messages"] == []
+
+    def test_delete_history_empty_session(self, client, memory):
+        """DELETE en sesion vacia retorna deleted=0."""
+        session_id = memory.create_session("web")
+        resp = client.delete(f"/api/chat/history?session_id={session_id}")
+        assert resp.json()["deleted"] == 0
+
+    def test_delete_history_no_agent(self, memory):
+        """DELETE sin agent retorna deleted=0."""
+        app = create_app(memory=memory, agent=None)
+        no_agent_client = TestClient(app)
+        resp = no_agent_client.delete("/api/chat/history?session_id=fake")
+        assert resp.json()["deleted"] == 0
+
+    def test_chat_page_has_clear_button(self, client):
+        """HTML tiene boton de borrar historial."""
+        resp = client.get("/chat")
+        assert "clear-btn" in resp.text
+
 
 # ================================================================
 # Smart routing

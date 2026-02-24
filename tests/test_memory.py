@@ -225,6 +225,35 @@ class TestSessions:
         assert stats["user_messages"] == 2
         assert stats["assistant_messages"] == 2
 
+    def test_clear_session_messages(self, memory):
+        """clear_session_messages borra todos los mensajes de una sesion."""
+        sid = memory.create_session("web")
+        memory.add_message(sid, "web", "user", "hola")
+        memory.add_message(sid, "web", "assistant", "hey!")
+        memory.add_message(sid, "web", "user", "que tal")
+        assert len(memory.get_session_messages(sid)) == 3
+
+        deleted = memory.clear_session_messages(sid)
+        assert deleted == 3
+        assert len(memory.get_session_messages(sid)) == 0
+
+    def test_clear_session_messages_empty(self, memory):
+        """clear_session_messages con sesion vacia retorna 0."""
+        sid = memory.create_session("web")
+        deleted = memory.clear_session_messages(sid)
+        assert deleted == 0
+
+    def test_clear_session_messages_preserves_other_sessions(self, memory):
+        """clear_session_messages solo borra mensajes de la sesion indicada."""
+        sid1 = memory.create_session("web")
+        sid2 = memory.create_session("web")
+        memory.add_message(sid1, "web", "user", "sesion 1")
+        memory.add_message(sid2, "web", "user", "sesion 2")
+
+        memory.clear_session_messages(sid1)
+        assert len(memory.get_session_messages(sid1)) == 0
+        assert len(memory.get_session_messages(sid2)) == 1
+
     def test_token_usage_24h(self, memory):
         """Token usage agrega tokens de las ultimas 24h."""
         sid = memory.create_session("telegram")

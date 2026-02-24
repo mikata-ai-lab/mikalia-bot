@@ -5,10 +5,11 @@ Smart routing: casual → Haiku streaming, tools → Sonnet con 44 herramientas.
 Misma logica que Telegram pero con SSE en vez de editMessageText.
 
 Endpoints:
-    GET  /chat              — Pagina HTML del chat
-    POST /api/chat          — Chat sincrono (fallback)
-    POST /api/chat/stream   — Chat SSE con routing inteligente
-    GET  /api/chat/history  — Historial de conversacion
+    GET    /chat              — Pagina HTML del chat
+    POST   /api/chat          — Chat sincrono (fallback)
+    POST   /api/chat/stream   — Chat SSE con routing inteligente
+    GET    /api/chat/history  — Historial de conversacion
+    DELETE /api/chat/history  — Borrar historial de una sesion
 """
 
 from __future__ import annotations
@@ -167,3 +168,17 @@ async def chat_history(session_id: str, request: Request):
         ],
         "session_id": session_id,
     }
+
+
+@router.delete("/api/chat/history")
+async def clear_chat_history(session_id: str, request: Request):
+    """Borra todos los mensajes de una sesion."""
+    agent = request.app.state.agent
+
+    if agent is None:
+        return {"deleted": 0, "session_id": session_id}
+
+    deleted = agent.memory.clear_session_messages(session_id)
+    logger.info(f"Historial borrado: {deleted} mensajes (session {session_id[:8]}...)")
+
+    return {"deleted": deleted, "session_id": session_id}
